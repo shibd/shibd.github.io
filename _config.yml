@@ -25,11 +25,12 @@ github_username:    shibd
 permalink: pretty
 paginate: 10
 exclude: ["less","node_modules","Gruntfile.js","package.json","README.md"]
-anchorjs: true    # if you want to customize anchor. check out line:181 of `post.html`
+anchorjs: true                          # if you want to customize anchor. check out line:181 of `post.html`
 
 # Gems
 # from PR#40, to support local preview for Jekyll 3.0
-gems: [jekyll-paginate]
+plugins: [jekyll-paginate]
+
 
 
 # Markdown settings
@@ -39,12 +40,12 @@ gems: [jekyll-paginate]
 markdown: kramdown
 highlighter: rouge
 kramdown:
-  input: GFM                      # use Github Flavored Markdown !important
+  input: GFM                            # use Github Flavored Markdown !important
 
 
 # 评论系统
 # Disqus（https://disqus.com/）
-disqus_username: shibd
+# disqus_username: shibd
 
 # Gitalk
 gitalk:
@@ -54,7 +55,7 @@ gitalk:
   repo: shibd.github.io    #仓库名称
   owner: shibd    #github用户名
   admin: shibd
-  distractionFreeMode: true #是否启用类似FB的阴影遮罩
+#   distractionFreeMode: true #是否启用类似FB的阴影遮罩
 
 
 # 统计

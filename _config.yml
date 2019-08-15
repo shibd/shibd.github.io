@@ -1,10 +1,10 @@
 # Site settings
-title: baozi
-SEOTitle: baozi
+title: Baozi
+SEOTitle: Baozi
 header-img: img/base/home.jpg
 email: wudixiaolongbao@gmail.com
 description: "Every failure is leading towards success."
-keyword: "baozi blog"
+keyword: "Baozi Blog"
 url: "http://shibd.github.io"          # your host, for absolute URL
 baseurl: ""      # for example, '/blog' if your blog hosted on 'host/blog'
 github_repo: "https://github.com/shibd/shibd.github.io.git" # you code repository

@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      分布式Websocket推送中心(一)-Spring Websocket Stomp介绍
-subtitle:   使用Spring Websocket Stomp实现分布式推送中心
+subtitle:   使用SpringWebsocket实现百万级连接的分布式推送中心
 date:       2019-08-15
 author:     baozi
 header-img: img/2019-08-15(Message-Center)/top-ux.jpg
@@ -29,8 +29,12 @@ Websocket是为了解决服务端和客户端双向通信问题，采用长链�
 - 没有同源限制，客户端可以与任意服务端建立连接
 
 ## STOMP协议(Simple Text Oriented Messaging Protocol)
-其实STOMP协议并不是为WS所设计的, 它其实是消息队列的一种协议, 和AMQP,JMS是平级的。 只不过由于它的简单性恰巧可以用于定义WS的消息体格式。
-目前很多服务端消息队列都已经支持了STOMP, 比如RabbitMQ, Apache ActiveMQ等。很多语言也都有STOMP协议的客户端解析库，像JAVA的Gozirra，C的libstomp，Python的pyactivemq，JavaScript的stomp.js等等。[原文](https://juejin.im/post/5b7071ade51d45665816f8c0)
+STOMP是一个用于C/S之间进行异步消息传输的简单文本协议, 全称是Simple Text Oriented Messaging Protocol。
+
+>[STOMP官方网站](http://stomp.github.io/index.html)
+
+其实STOMP协议并不是为WS所设计的，它其实是消息队列的一种协议，和AMQP，JMS是平级的。 只不过由于它的简单性恰巧可以用于定义WS的消息体格式。
+目前很多服务端消息队列都已经支持了STOMP，比如RabbitMQ，Apache ActiveMQ等。很多语言也都有STOMP协议的客户端解析库，像JAVA的Gozirra，C的libstomp，Python的pyactivemq，JavaScript的stomp.js等等。[原文](https://juejin.im/post/5b7071ade51d45665816f8c0)
 
 RabbitMQ提供了WebSocket的插件，你可以通过使用STOMP + Websocket + RabbitMQ实现服务端推送。[参考该文](https://www.ibm.com/developerworks/cn/opensource/os-cn-rabbit-mq/index.html)
 
@@ -41,9 +45,9 @@ Webcoekt结合STOMP就相当于实现了一个消息队列，服务端与客户�
 ## SpringBoot实现Websocket和STOMP
 Spring遵循STOMP协议内部做了实现，Spring内部对服务做了大量的抽象，可以参照[官网](https://docs.spring.io/spring/docs/5.0.0.BUILD-SNAPSHOT/spring-framework-reference/html/websocket.html)和[该文](https://juejin.im/post/5b7071ade51d45665816f8c0#heading-20)结合理解其实现。
 
-简单理解，你可以利用Spring配置服务端作为消费者订阅哪些topic消息，以及收到消息后处理方法。同样可以作为生产者为指定的topic里发送消息，例如`simple.send("/topic/group", "message")`
+简单理解，你可以利用Spring配置服务端作为消费者订阅哪些topic消息，以及收到消息后处理方法。同样可以作为生产者为指定的topic里发送消息，例如`simple.send("/topic/group"， "message")`
 
-其实应用在和对手建立链接后Spring会维护类似`Map<"/topic/group", List<地址>>`这样的映射关系，如果是点对点消息则`Map<"/topic/userName/queue", 地址>`。所以面向用户来说就不用关心建立链接，Session等信息，发送消息和接收消息都是操作**topic**。
+其实应用在和对手建立链接后Spring会维护类似`Map<"/topic/group", List<地址>>`这样的映射关系，如果是点对点消息则`Map<"/topic/userName/queue", 地址>`。对于用户来说就不用维护链接信息，消息该发送给谁等问题，发送消息和接收消息都是操作**topic**。
 
 ## Spring运行Websocket实现简单服务端推送消息
 ### 场景描述
@@ -65,7 +69,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  * @author baozi Websocket配置类
  */
 @Configuration
-@EnableWebSocketMessageBroker // 使用此注解启动websocket,使用broker来处理消息
+@EnableWebSocketMessageBroker // 使用此注解启动websocket，使用broker来处理消息
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
 	@Override
@@ -133,7 +137,7 @@ function connect() {
         console.log('Connected: ' + frame);
         // 订阅服务端开启的/topic下的greetings地址
         stompClient.subscribe('/topic/greetings', function (greeting) {
-            // 服务端发送消息,客户端收到展示
+            // 服务端发送消息，客户端收到展示
             showGreeting(JSON.parse(greeting.body).content);
         });
     });

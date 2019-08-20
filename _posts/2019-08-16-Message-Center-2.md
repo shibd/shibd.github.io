@@ -28,9 +28,15 @@ tags:
 ### 功能需求
 推送中心的目标是为了满足全公司的后端推送业务的，从功能上需要满足多个项目同时接入，同时项目与项目之间数据要完全隔离，不能`电商项目`的广播消息被`理财项目`给接收到了。为了说明推送中心的功能需要，请看下图。
 ![](/img/2019-08-15(Message-Center)/architecture2.jpg)
-另外推送中心支持广播，组播，单播接口。例如电商项目可以支持给所有客户端发送消息(`广播`)，也可以指定给所有地点为`上海`的客户端发送消息(`多播`)，也可以指定给`用户1`发送消息(`单播`)。
+1. 推送中心要支持支持广播，组播，单播接口。例如电商项目可以支持给所有客户端发送消息(`广播`)，也可以指定给所有地点为上海的客户端发送消息(`多播`)，也可以指定给用户1发送消息(`单播`)。
+2. 推送中心要有鉴权功能，客户端连接推送中心时推送中心要能校验客户端是否合法。
+3. 推送中心要灵活管理连接，实时查看客户端连接情况，主动断开与某个客户端的连接等功能。
+4. 推送中心要有黑白名单功能，能防御恶意连接，能防御DDOS攻击。
+5. 推送中心要高可用，支持高并发连接。
 
-### 实现广播、组播和单播
+本文分享上述1，2，3，4解决方案。如何高可用如何支持高并发连接在第三篇和第四篇分享。
+
+### 实现广组单播
 #### 谈谈自己实现
 在谈论如何使用Websocket实现广播、组播、单播之前，我们先来明确一下WebSocket的本质。WebSocket其实是客户端和服务端`多对1`建立的长连接，对于服务端(`推送中心`)来说，它和N个客户端连接，所以它自然可以给每个连接打`tag`，比如他可以标机一条连接是电商项目的用户1，另一条连接是理财项目的`shanghai`组。所以我们可以在应用内部设计这样一个映射表来实现:
 
@@ -42,7 +48,9 @@ tags:
 - 单播：主题约定为前端传的`userId`，或者`设备唯一id`，服务端还是根据主题找到连接，推送即可。
 
 #### 谈谈借助STOMP实现
-看到这里其实已经明白，所谓的广播、多播、单播，在WebSocket下就是`主题`和`链接`的关系。客户端订阅唯一的主题就是单播，客户端都订阅相同的主题就是广播，某一些客户端订阅的主题就是多播。这和第一章我们聊的STOMP协议是相似的，我把上篇的相关代码拿过来。
+看到这里其实已经明白，所谓的广播、多播、单播，在WebSocket下就是`主题`和`链接`的关系。客户端订阅唯一的主题就是单播，客户端都订阅相同的主题就是广播，某一些客户端订阅相同的主题就是多播。这和第一章我们聊的STOMP协议是相似的，我把上篇的相关代码拿过来。
+
+实际上Spring WebSocket STOMP的实现就是维护了类似于`destination`和`连接`的关系，这里的`destination`就是客户端订阅的目录格式的路径，感兴趣的同学可以翻阅官方源码类`SessionSubscriptionRegistry`。
 ``` java
 // javascript客户端订阅主题
 stompClient.subscribe('/topic/greetings', function (greeting) {
@@ -54,49 +62,38 @@ stompClient.subscribe('/user/queue/' + project + '/', function (greeting) {
     showGreeting('UserMessage: ' + JSON.parse(greeting.body).content);
 });
 
-// java服务端望该主题发送消息
+// java服务端向该主题发送消息
 messagingTemplate.convertAndSend("/topic/greetings",
  new Greeting("Hello, " + HtmlUtils.htmlEscape(message.getName()) + "!"))
 }
 ```
-实际上Spring WebSocket STOMP的实现也是维护了类似于上面讲述的映射关系，感兴趣的同学可以翻阅源码`SessionSubscriptionRegistry`。我们可以通过STOMP加上约定来实现多项目下的广播、多播和单播，我们约定STOMP的订阅路径为:
->`/topic/group` <br>
-`topic`: 为统一后端约定广播模式根路径。<br>
-`group`: `group`可以自定义，可以前后端约定为`all`来实现广播，也可以定义子路径为`/greetings/group1`来实现多播。也可以定义为`唯一设备id`来实现单播。
 
-另外Spring WebSocket STOMP还支持针对认证的用户单独发送消息，你可以认为这也是多播的一种方案(因为同一个用户有可能多个客户端建立连接)，约定STOMP订阅路径为：
+综上，我们可以使用STOMP协议加上和项目约定好订阅路径来实现多项目下的广播、多播和单播。我们约定STOMP的订阅路径为:
+>`/topic/projcetId/xxx` <br><br>
+`topic`: 统一订阅的根路径名称。<br>
+`projcetId`: 项目Id, 必传 <br>
+`xxx`: `xxx`可以自定义，可以前后端约定为`all`来实现广播，也可以定义子路径为`/greetings/group1`来实现多播。也可以定义为`唯一设备id`来实现单播。
+
+Spring WebSocket STOMP还支持针对认证的用户单独发送消息，你可以认为这也是多播的一种方案(因为同一个用户有可能多个客户端建立连接)，约定STOMP订阅路径为：
 >`/user/queue/`
 
-综上，推送中心根据STOMP，约定了前端订阅规范，另外又提供了REST接口供后端调用推送数据。入参为：
+推送中心和项目客户端以上述约定格式建立ws连接后，项目后端可以通过调用推送中心暴露的restful接口推送消息。接口入参如下：
 ``` java
-public class WsTopicMessage {
- /**
-  * 项目ID
-  */
- private String projectId;
-
- /**
-  *
-  * 主题
-  */
- private String topic;
-
- /**
-  * 具体内容(和前端约定好的json数据)
-  * 例如:
-  * "{\"content\":\"解析我,做你想做的事情\"}"
-  */
- private String playLoad;
+{
+  "projectId": "电商项目id",
+  "playLoad": "{\"content\":\"解析我,做你想做的事情\"}",
+  "topic": "all/group1/",
+  "updateTime": 1557676800000
 }
 ```
-`项目前端`、`推送中心`、`项目后端`间完整调用流程为：
-1. `项目前端`向推送中心建立WebSocket连接，并调用subscribe订阅，传入和后端约定好的主题`shanghai`，完整订阅路径:`/topic/projectId/shanghai`。
+`项目客户端`、`推送中心`、`项目后端`间完整调用流程为：
+1. `项目客户端`向推送中心建立WebSocket连接，并调用subscribe订阅，传入和后端约定好的主题`shanghai`，完整订阅路径:`/topic/projectId/shanghai`。
 2. `推送中心`根据前端链接鉴权(后面会说)，同意建立连接，然后根据订阅的路径维护`订阅路径`与`连接`间的关系。
 3. `项目后端`调用推送中心的REST接口，传入**projectId**和**topic**以及**playLoad**。
 4. `推送中心`根据projectId和topic找到一堆或一个客户端链接发送消息。
 
 
-### 鉴权方案
+### 实现鉴权
 #### 方案设计
 客户端在和推送中间建立ws连接时需要鉴权，如果一个不合法的客户端成功和Websocket建立链接，那么就可以收到他想窃听的消息。客户端和推送中心建立ws连接时，推送中心需要去找业务系统确认客户端的合法性，具体实现方案有很多种。
 
@@ -234,8 +231,41 @@ private DefaultHandshakeHandler myDefaultHandshakeHandler() {
 }
 ```
 
-### WebSocket安全
-其实WebSocket还设计很多安全性的问题，笔者目前还没实验踩坑，后续会单独对安全性进行测试，感兴趣的可以先参考[该篇文章](https://www.anquanke.com/post/id/85999)。
+### 实现管理连接
+在Spring Web STOMP中可以使用`SimpUserRegistry`对象获取所有`session`的集合。推送中心在支持多项目的情况下，对`SimpUserRegistry`结果做了处理，支持分项目分订阅主题来查看连接，但是暂时不能对连接做修改。样例数据：
+```
+  "data": [
+    {
+      "projectId": "fm",
+      "wsUserSessionVos": [
+        {
+          "userId": "wudixiaobaozi",
+          "sessions": [
+            {
+              "sessionId": "jdtcl3r4",
+              "remoteUrl": "/127.0.0.1:52476",
+              "subscriptions": [
+                "/user/queue/fm/",
+                "/topic/fm/all/group1/dss"
+              ]
+            },
+            {
+              "sessionId": "fyhgruy5",
+              "remoteUrl": "/127.0.0.1:52465",
+              "subscriptions": [
+                "/topic/fm/all/group1/",
+                "/user/queue/fm/"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+```
+
+### 实现安全
+其实WebSocket涉及很多安全性的问题，笔者目前还没实验踩坑，后续会单独对安全性进行测试，感兴趣的可以先参考[该篇文章](https://www.anquanke.com/post/id/85999)。
 
 ### 总结
 本篇介绍了如何使用Spring WebSocket STOMP支持多项目下广播，多播，单播推送设计，通过前后端约定主题，后端调用推送中心restful接口实现。另外介绍了推送中心的鉴权方案设计，以及两种实现方式。可参考

@@ -11,7 +11,7 @@ tags:
     - 架构
 ---
 
-## 概述
+### 概述
 公司开发项目众多，各个项目都有和终端推送的需求，于是决定实现一个公司级的推送中心，屏蔽技术细节，服务全公司。笔者在设计实现完后记录下心路历程。
 
 本系列文章是在Spring Websocket Stomp的基础上实现的推送系统，计划包含如下几篇文章：
@@ -21,14 +21,14 @@ tags:
 第三篇：推送中心单机支持百万级连接的晋级之路<br>
 第四篇：推送中心的分布式架构方案设计落地<br>
 
-## WebSocket协议
+### WebSocket协议
 Websocket是为了解决服务端和客户端双向通信问题，采用长链接，避免了HTTP协议无状态反复解析请求头的问题。WebSocket协议细节不多解释，读者可以google学习。简单总结一下，WebSocket协议特点：
 - TCP/IP中的应用层协议
 - 建立在TCP协议之上，全双工通信协议
 - 握手阶段采用Http协议，需要从Http协议升级而来
 - 没有同源限制，客户端可以与任意服务端建立连接
 
-## STOMP协议(Simple Text Oriented Messaging Protocol)
+### STOMP协议(Simple Text Oriented Messaging Protocol)
 STOMP是一个用于C/S之间进行异步消息传输的简单文本协议, 全称是Simple Text Oriented Messaging Protocol。
 
 >[STOMP官方网站](http://stomp.github.io/index.html)
@@ -42,20 +42,20 @@ STOMP只是文本传输协议，并不参与通信细节。可以简单理解它
 
 Webcoekt结合STOMP就相当于实现了一个消息队列，服务端与客户端都可以作为生产者和消费者发送和消费消息，可以根具订阅不同的队列实现单薄、广播和多播(其实WebSocket是点对点的，广播和多播都只是服务端轮训所有客户端发送实现)。
 
-## SpringBoot实现Websocket和STOMP
+### SpringBoot实现Websocket和STOMP
 Spring遵循STOMP协议内部做了实现，Spring内部对服务做了大量的抽象，可以参照[官网](https://docs.spring.io/spring/docs/5.0.0.BUILD-SNAPSHOT/spring-framework-reference/html/websocket.html)和[该文](https://juejin.im/post/5b7071ade51d45665816f8c0#heading-20)结合理解其实现。
 
 简单理解，你可以利用Spring配置服务端作为消费者订阅哪些topic消息，以及收到消息后处理方法。同样可以作为生产者为指定的topic里发送消息，例如`simple.send("/topic/group"， "message")`
 
 其实应用在和对手建立链接后Spring会维护类似`Map<"/topic/group", List<地址>>`这样的映射关系，如果是点对点消息则`Map<"/topic/userName/queue", 地址>`。对于用户来说就不用维护链接信息，消息该发送给谁等问题，发送消息和接收消息都是操作**topic**。
 
-## Spring运行Websocket实现简单服务端推送消息
-### 场景描述
+### Spring运行Websocket实现简单服务端推送消息
+#### 场景描述
 我们来实现推送中心的第一步，实现服务端向客户端推送消息，客户端展示。基于[官方demo](https://spring.io/guides/gs/messaging-stomp-websocket/)改造实现。我放到了推送中心的demo分支上。
 
 **[参考代码](https://github.com/shibd/msg-center/tree/simple/demo)**
 
-### 为Spring配置STOMP消息
+#### 为Spring配置STOMP消息
 通过`@EnableWebSocketMessageBroker`启动Spring Websocket STOMP，注册端点，配置消息代理前缀
 ``` java
 package hello;
@@ -88,7 +88,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 }
 ```
 
-### 编写发送Controller
+#### 编写发送Controller
 编写一个Controller接收http请求，解析并发送消息至`/topic/greetings`下的topic。
 ``` java
 package hello;
@@ -123,7 +123,7 @@ public class GreetingController {
 
 }
 ```
-### 前端实现页面
+#### 前端实现页面
 前端SockJS实现了WebSocket，stomp.js实现了STOMP协议。
 ``` javascript
 function connect() {
@@ -144,7 +144,7 @@ function connect() {
 }
 ```
 
-### 演示
+#### 演示
 
 - 打开`http://127.0.0.1:8080`点击Connect进行websocket连接。
 - 文本框输入消息点击发送，前端收到后端推送的刚才输入的消息。
@@ -152,7 +152,7 @@ function connect() {
 ![](/img/2019-08-15(Message-Center)/msg-ui.jpg)
 
 
-## 总结
+### 总结
 目标是实现一个可以支持百万链接的分布式推送中心，推送中心如何高可用，如何鉴权，websocket安全，如何使用该文都未涉及，后续篇章会陆续介绍。截止目前，我们使用Spring Websocket实现了前后端建立WebSocket链接，实现了后端给前端推送消息。简单架构，当然该"推送中心"还不是推送中心。
 
 ![](/img/2019-08-15(Message-Center)/architecture1.jpg)

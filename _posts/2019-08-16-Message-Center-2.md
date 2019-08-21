@@ -117,41 +117,60 @@ Spring WebSocket STOMP还支持针对认证的用户单独发送消息，你可�
 
 Spring Websocket STOMP[官网](https://docs.spring.io/spring/docs/current/spring-framework-reference/web.html#websocket-stomp-authentication-token-based)在Token Authenication中说到，由于WebSocket协议并没有规定在WebSocket握手期间对客户端进行身份认证，而且SockJS JavaScript客户端不提供建立连接时自定义请求头，但是允许传入请求参数，所以我们可以把token放到请求参数当中。
 
-Spring Websocket STOMP官网没有选择把token在ws握手时传入，推荐在创建STOMP协议时带入token到服务端认证，通过创建`ChannelInterceptor`实现，具体参见[官网](https://docs.spring.io/spring/docs/current/spring-framework-reference/web.html#websocket-stomp-authentication-token-based)。
+Spring Websocket STOMP官网没有选择把token在ws握手时传入，推荐在创建STOMP协议时带入token到服务端认证，通过创建`ChannelInterceptor`实现，可以参见[推送中心完整项目地址](https://github.com/shibd/msg-center)
+
+客户端在STOMP建立时传入JWT
+``` javascript
+stompClient = Stomp.over(socket);
+stompClient.connect({
+    token: token,
+    projectId: projectId
+}, connectCallback, errorCallback);
+
+//连接失败时的回调函数
+function errorCallback(res) {
+  if(res属于鉴权失败) {
+    // 取消连接，调用回调函数
+  }
+  if(res属于服务端不存在或者网络错误) {
+    // 隔段时间重试
+  }
+}
+}
+```
+
+服务端配置STOMP认证管道校验JWT
 ``` java
 @Configuration
 @EnableWebSocketMessageBroker
 public class MyConfig implements WebSocketMessageBrokerConfigurer {
 
-    @Override
-    public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(new ChannelInterceptor() {
-            @Override
-            public Message<?> preSend(Message<?> message, MessageChannel channel) {
-                StompHeaderAccessor accessor =
-                        MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
-                if (StompCommand.CONNECT.equals(accessor.getCommand())) {
-                    Authentication user = ... ; // 获取JWT公钥鉴权
-                    accessor.setUser(user);
-                }
-                return message;
-            }
-        });
-    }
+	/**
+	 * 配置STOMP认证管道
+	 * @param registration
+	 */
+	@Override
+	public void configureClientInboundChannel(ChannelRegistration registration) {
+		registration.interceptors(new ChannelInterceptor() {
+			@Override
+			public Message<?> preSend(Message<?> message, MessageChannel channel) {
+				StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+				if (StompCommand.CONNECT.equals(accessor.getCommand())) {
+					Map<String, LinkedList> headers = (Map) message.getHeaders()
+							.get(SimpMessageHeaderAccessor.NATIVE_HEADERS);
+					// 鉴权,校验失败会抛出异常,通过ws把消息给到客户端
+					Principal user = authenticate(headers);
+					accessor.setUser(user);
+				}
+				return message;
+			}
+		});
+	}
 }
-```
-客户端在STOMP建立时传入JWT
-``` javascript
-const socket = new SockJS(ApiConfig.domain['websocket']);
-stompClient = Stomp.over(socket);
-stompClient.connect(
-  {
-    token: "jwt"
-  }, connectCallback, errorCallback);
 ```
 
 #### Websocket建立时鉴权
-上述官方推荐在建立STOMP协议时鉴权，实际在STOMP协议鉴权时WS已经创建完连接，这样对于服务端是不“安全”的，其他客户端可以不通过STOMP协议，直接向推送中心建立WebSocket连接。虽然socket js不支持修改ws的headers，但是也可以放在请求入参中（虽然Spring官方不推荐这样做）。[推送中心完整项目地址](https://github.com/shibd/msg-center)
+上述官方推荐在建立STOMP协议时鉴权，虽然socket js不支持修改ws的headers，但是也可以放在请求入参中完成在WebSocket握手时鉴权。相关代码如下
 
 客户端在WS建立时传入JWT
 ``` javascript
@@ -230,6 +249,7 @@ private DefaultHandshakeHandler myDefaultHandshakeHandler() {
   };
 }
 ```
+
 
 ### 实现管理连接
 在Spring Web STOMP中可以使用`SimpUserRegistry`对象获取所有`session`的集合。推送中心在支持多项目的情况下，对`SimpUserRegistry`结果做了处理，支持分项目分订阅主题来查看连接，但是暂时不能对连接做修改。样例数据：

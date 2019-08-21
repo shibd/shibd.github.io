@@ -4,7 +4,7 @@ title:      分布式Websocket推送中心(一)-Spring Websocket Stomp介绍
 subtitle:   使用SpringWebsocket实现百万级连接的分布式推送中心
 date:       2019-08-15
 author:     baozi
-header-img: img/2019-08-15(Message-Center)/top-ux.jpg
+header-img: img/2019-08-15(Message-Center)/top1.jpg
 catalog: true 						
 tags:								
     - Java

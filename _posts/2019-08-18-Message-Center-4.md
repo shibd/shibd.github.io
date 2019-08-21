@@ -4,7 +4,7 @@ title:      分布式Websocket推送中心(四)-推送中心的分布式架构�
 subtitle:   使用Spring Websocket Stomp协议设计推送中心
 date:       2019-08-18
 author:     baozi
-header-img: img/2019-08-15(Message-Center)/top-ux.jpg
+header-img: img/2019-08-15(Message-Center)/top4.jpg
 catalog: true 						
 tags:								
     - Java

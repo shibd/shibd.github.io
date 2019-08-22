@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      分布式Websocket推送中心(一)-Spring Websocket Stomp介绍
-subtitle:   使用SpringWebsocket实现百万级连接的分布式推送中心
+title:      Websocket推送中心(一)-Spring Websocket Stomp介绍
+subtitle:   使用Spring Websocket Stomp协议设计推送中心
 date:       2019-08-15
 author:     baozi
 header-img: img/2019-08-15(Message-Center)/top1.jpg
@@ -19,7 +19,7 @@ tags:
 **第一篇**：Spring Websocket Stomp介绍<br>
 **第二篇**：[基于Websocket Stomp的推送中心实现](https://shibd.github.io/2019/08/16/Message-Center-2/)<br>
 **第三篇**：[推送中心单机支持百万级连接的晋级之路](https://shibd.github.io/2019/08/17/Message-Center-3/)<br>
-**第四篇**：[推送中心的分布式架构方案设计落地](https://shibd.github.io/2019/08/18/Message-Center-4/)<br>
+**第四篇**：[推送中心的集群架构方案设计落地](https://shibd.github.io/2019/08/18/Message-Center-4/)<br>
 
 ### WebSocket协议
 Websocket是为了解决服务端和客户端双向通信问题，采用长链接，避免了HTTP协议无状态反复解析请求头的问题。WebSocket协议细节不多解释，读者可以google学习。简单总结一下，WebSocket协议特点：
@@ -153,6 +153,6 @@ function connect() {
 
 
 ### 总结
-目标是实现一个可以支持百万链接的分布式推送中心，推送中心如何高可用，如何鉴权，websocket安全，如何使用该文都未涉及，后续篇章会陆续介绍。截止目前，我们使用Spring Websocket实现了前后端建立WebSocket链接，实现了后端给前端推送消息。简单架构，当然该"推送中心"还不是推送中心。
+目标是实现一个可以支持百万链接的推送中心，推送中心如何高可用，如何鉴权，websocket安全，如何使用该文都未涉及，后续篇章会陆续介绍。截止目前，我们使用Spring Websocket实现了前后端建立WebSocket链接，实现了后端给前端推送消息。简单架构，当然该"推送中心"还不是推送中心。
 
 ![](/img/2019-08-15(Message-Center)/architecture1.jpg)

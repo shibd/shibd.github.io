@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      分布式Websocket推送中心(三)-单机服务100W连接(C1000K)目标达成
+title:      Websocket推送中心(三)-单机服务100W连接(C1000K)目标达成
 subtitle:   使用Spring Websocket Stomp协议设计推送中心
 date:       2019-08-17
 author:     baozi
@@ -12,12 +12,12 @@ tags:
 ---
 
 ### 概述
-本文是分布式WebSocket推送中心的第三章节， 本系列文章是在Spring Websocket Stomp的基础上实现的推送系统，计划包含如下几篇文章：
+本文是WebSocket推送中心的第三章节， 本系列文章是在Spring Websocket Stomp的基础上实现的推送系统，计划包含如下几篇文章：
 
 **第一篇**：[Spring Websocket Stomp介绍](https://shibd.github.io/2019/08/15/Message-Center-1/)<br>
 **第二篇**：[基于Websocket Stomp的推送中心实现](https://shibd.github.io/2019/08/16/Message-Center-2/)<br>
 **第三篇**：推送中心单机支持百万级连接的晋级之路<br>
-**第四篇**：[推送中心的分布式架构方案设计落地](https://shibd.github.io/2019/08/18/Message-Center-4/)<br>
+**第四篇**：[推送中心的集群架构方案设计落地](https://shibd.github.io/2019/08/18/Message-Center-4/)<br>
 
 ### 本章主线
 上篇文章介绍了如何使用WebSocket和STOMP来实现推送中心的需求，确定了单体下推送中心功能。本章将分享推送中心在服务器单体如何支持百万级连接，从测试案例编写开始，一步一步进行服务器调优，踩坑，突破连接数，最后达到百万连接的过程。

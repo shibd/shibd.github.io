@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      Websocket推送中心(四)-推送中心的集群架构方案设计落地
+title:      Websocket推送中心(四)-推送中心的集群架构
 subtitle:   使用Spring Websocket Stomp协议设计推送中心
 date:       2019-08-18
 author:     baozi

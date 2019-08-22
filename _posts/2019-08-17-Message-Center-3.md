@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      Websocket推送中心(三)-单机服务100W连接(C1000K)达成
+title:      Websocket推送中心(三)-单机100W连接(C1000K)达成
 subtitle:   使用Spring Websocket Stomp协议设计推送中心
 date:       2019-08-17
 author:     baozi

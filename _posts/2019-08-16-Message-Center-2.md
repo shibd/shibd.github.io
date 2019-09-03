@@ -138,7 +138,7 @@ function errorCallback(res) {
 }
 ```
 
-服务端配置STOMP认证管道校验JWT
+服务端配置STOMP认证管道校验JWT，Spring Boot官方为配置一个`Inbound`的拦截器，拦截`Connect`请求，这其实是属于STOMP的第一次握手时鉴权。但是只配置`Inbound`只能设置鉴权用户和设置用户，并不能把
 ``` java
 @Configuration
 @EnableWebSocketMessageBroker

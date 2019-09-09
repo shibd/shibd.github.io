@@ -53,7 +53,7 @@ Spring遵循STOMP协议内部做了实现，Spring内部对服务做了大量的
 #### 场景描述
 我们来实现推送中心的第一步，实现服务端向客户端推送消息，客户端展示。基于[官方demo](https://spring.io/guides/gs/messaging-stomp-websocket/)改造实现。我放到了推送中心的demo分支上。
 
-**[参考代码](https://github.com/shibd/msg-center/tree/simple/demo)**
+**[参考代码](https://github.com/shibd/socket.io.java.server.biz/tree/simple/demo)**
 
 #### 为Spring配置STOMP消息
 通过`@EnableWebSocketMessageBroker`启动Spring Websocket STOMP，注册端点，配置消息代理前缀

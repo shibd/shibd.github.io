@@ -347,7 +347,7 @@ echo "net.ipv4.tcp_wmem = 4096 4096 16777216">> /etc/sysctl.conf
 
 推送中心到此，设计和性能压测都已经完毕，但到现在为止还是单体的。那么推送中心如何做集群，集群模式下怎样共享数据，怎样高可用，怎样实现横向扩展，下章节会分享。
 
-> [推送中心地址](https://github.com/shibd/msg-center)
+> [推送中心地址](https://github.com/shibd/socket.io.java.server.biz/tree/done/stomp)
 
 
 <br>

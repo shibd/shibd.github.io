@@ -116,7 +116,7 @@ Spring WebSocket STOMP还支持针对认证的用户单独发送消息，你可�
 
 Spring Websocket STOMP[官网](https://docs.spring.io/spring/docs/current/spring-framework-reference/web.html#websocket-stomp-authentication-token-based)在Token Authenication中说到，由于WebSocket协议并没有规定在WebSocket握手期间对客户端进行身份认证，而且SockJS JavaScript客户端不提供建立连接时自定义请求头，但是允许传入请求参数，所以我们可以把token放到请求参数当中。
 
-Spring Websocket STOMP官网没有选择把token在ws握手时传入，推荐在创建STOMP协议时带入token到服务端认证，通过创建`ChannelInterceptor`实现，可以参见[推送中心完整项目地址](https://github.com/shibd/msg-center)
+Spring Websocket STOMP官网没有选择把token在ws握手时传入，推荐在创建STOMP协议时带入token到服务端认证，通过创建`ChannelInterceptor`实现，可以参见[推送中心完整项目地址](https://github.com/shibd/socket.io.java.server.biz/tree/done/stomp)
 
 客户端在STOMP建立时传入JWT
 ``` javascript
@@ -288,6 +288,6 @@ private DefaultHandshakeHandler myDefaultHandshakeHandler() {
 
 ### 总结
 本篇介绍了如何使用Spring WebSocket STOMP支持多项目下广播，多播，单播推送设计，通过前后端约定主题，后端调用推送中心restful接口实现。另外介绍了推送中心的鉴权方案设计，以及两种实现方式。可参考
->[推送中心完整代码](https://github.com/shibd/msg-center)。
+>[推送中心完整代码](https://github.com/shibd/socket.io.java.server.biz/tree/done/stomp)。
 
 到现在为止，单体的推送中心设计已经结束，后续会分享单体推送中心服务器调优达到百万级长连接，以及推送中心的集群方案设计。

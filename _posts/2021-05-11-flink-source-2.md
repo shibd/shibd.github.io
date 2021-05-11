@@ -4,7 +4,7 @@ title:      Flink源码解析[Source](二) - 如何创建Flink kafka source
 subtitle:   Flink源码解析[Source](二) - 如何创建Flink kafka source
 date:       2021-05-11
 author:     baozi
-header-img: img/2021-flink-source/000flink-background.png
+header-img: img/2019-08-15(Message-Center)/top2.jpg
 catalog: true 						
 tags:								
     - flink
@@ -27,8 +27,8 @@ tags:
 
 创建source两种方式
 
-1. env.addSource: 1.11.0版本之前的方式，现在普遍使用的方式。
-2. env.fromSource: 1.11.0之后的方式，抽象的更好。
+1. env.addSource: **1.11.0**版本之前的方式，现在普遍使用的方式。
+2. env.fromSource: **1.11.0**之后的方式，抽象的更好。
 
 由于新版本api还没有普遍使用，一般实现一个source-connect会实现这两种api，例如flink的仓库当中kafka的实现分为两个package，这两个package之间代码是互相独立的。
 
@@ -112,7 +112,7 @@ public SingleOutputStreamOperator<T> assignTimestampsAndWatermarks(
 }
 ```
 
-关于1.11.0版本之前的api，在自定一个Source时需要涉及几块知识：
+关于**1.11.0**版本之前的api，在自定一个Source时需要涉及几块知识：
 
 1. watermark是如何和source结合的。
 2. checkpoint是如何和source结合的。

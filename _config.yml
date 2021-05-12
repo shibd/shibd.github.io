@@ -81,11 +81,8 @@ service-worker: true
 # Friends
 friends: [
     {
-        title: "简书",
-        href: "http://www.jianshu.com"
-    },{
-        title: "Apple",
-        href: "https://apple.com"
+        title: "github",
+        href: "https://github.com/shibd"
     },{
         title: "Apple Developer",
         href: "https://developer.apple.com/"

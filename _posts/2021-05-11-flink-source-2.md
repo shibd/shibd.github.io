@@ -17,9 +17,9 @@ tags:
 
 >  flink版本为1.12.0
 
-**第一篇**：[为什么要解析Source源码](https://shibd.github.io/2021/05/11/flink-source-1/)<br>
+**第一篇**：[为什么要解析Source源码](https://shibd.github.io/2021/05/07/flink-source-1/)<br>
 **第二篇**：[如何创建Flink kafka source](https://shibd.github.io/2021/05/11/flink-source-2/)<br>
-**第三篇**：[新版Source源码解析-进行中]()<br>
+**第三篇**：[新版Data Source详解&源码](https://shibd.github.io/2021/05/14/flink-source-3/)<br>
 
 
 
@@ -118,7 +118,11 @@ public SingleOutputStreamOperator<T> assignTimestampsAndWatermarks(
 2. checkpoint是如何和source结合的。
 3. source中的实现是如何分部在jobManager和taskManager中的。
 
-这块笔者写笔记时还没有深入研究，先TODO起来，感兴趣的参考文章：[Flink kafka source & sink 源码解析](https://flink-learning.org.cn/developers/flink-kafka-source-sink-source-analysis/)
+这块笔者写笔记时还没有深入研究，先TODO起来，感兴趣的参考文章：
+
+1. [官方文档DataStream Connectors](https://ci.apache.org/projects/flink/flink-docs-release-1.12/dev/connectors/)
+
+2. [Flink kafka source & sink 源码解析](https://flink-learning.org.cn/developers/flink-kafka-source-sink-source-analysis/)
 
 
 
@@ -158,7 +162,7 @@ fromSource的创建主要是直接生成一个`Source`的实现，Source是一�
 
 
 
-对于`fromSource`的方式，我在另外一篇文章中会详细解读官网介绍，并加上自己的理解说明：[DataSource源码解读]()
+对于`fromSource`的方式，我在另外一篇文章中会详细解读官网介绍，并加上自己的理解说明：[新版Data Srouces详解&源码](https://shibd.github.io/2021/05/15/flink-source-3/)<br>
 
 
 

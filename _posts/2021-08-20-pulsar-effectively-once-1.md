@@ -15,7 +15,7 @@ tags:
 
 > https://www.splunk.com/en_us/blog/it/effectively-once-semantics-in-apache-pulsar.html
 
-pulsar在文章中详细介绍了是如何支持Effectively once的，本文不再重复阐述，下面只把文章中描述的结论做总结。
+pulsar在文章中详细介绍了是如何支持Effectively once的，本文不再重复阐述，下面只把文章中描述的结论做总结。后面会进行源码解析。
 
 为了实现Effectively once，pulsar从两个方面支持：
 
@@ -89,7 +89,7 @@ while (true) {
 }
 ```
 
-综上，为了实现完全的消费者精确一次性消费，如果producer端不能保证发送的消息没有重复消息时，则需要consumer端使用一张大的幂等持久化状态存储来实现，但让这个幂等状态可以根据业务场景配置一定的淘汰机制。
+综上，为了实现完全的消费者精确一次性消费，如果producer端不能保证发送的消息没有重复消息时，则需要consumer端使用一张大的幂等持久化状态存储来实现，当然这个幂等状态可以根据业务场景配置一定的淘汰机制。
 
 
 ## Message Deduplication源码解析
@@ -162,7 +162,7 @@ pulsar的每个broker是无状态的，如果某个broker挂机，那么该broke
 
 broker在启动时会根据用户的配置启动一个定时线程调用MessageDeduplication#takeSnapshot方法来进行状态快照的持久化。状态是写入bk当中的，使用了ManagedCursor的properties元数据存储。
 
-```
+```java
     private void takeSnapshot(PositionImpl position) {
         if (log.isDebugEnabled()) {
             log.debug("[{}] Taking snapshot of sequence ids map", topic.getName());
@@ -221,3 +221,10 @@ Pulsar对于实现Effectively once语义是需要用户配合外部存储来完�
 业务场景2：不具有可会溯源的生产者
 
 比如，producer端的数据是从http请求发送的，那么则不能使用pulsar producer message deduplication，所以consumer端需要依赖外部存储存储所有的messageId（业务属性的），从而实现Effectively once语义。
+
+## 推荐阅读
+
+- [Apache Pulsar 如何保证消息不丢不重？](https://mp.weixin.qq.com/s/WhZq1o12OxuMdtSV2lEf-A)
+- [Effectively-Once Semantics in Apache Pulsar](https://www.splunk.com/en_us/blog/it/effectively-once-semantics-in-apache-pulsar.html)
+- [TOAB-Bookkeeper](https://www.splunk.com/en_us/blog/it/scaling-out-total-order-atomic-broadcast-with-apache-bookkeeper.html)
+    

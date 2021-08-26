@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang='zh-CN'>
+
+<head>
+  <meta name="generator" content="Hexo 5.4.0">
+  <meta charset="utf-8">
+  
+
+  <meta http-equiv='x-dns-prefetch-control' content='on' />
+  <link rel='dns-prefetch' href='https://cdn.jsdelivr.net'>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+  <meta name="renderer" content="webkit">
+  <meta name="force-rendering" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="HandheldFriendly" content="True" >
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" content="#f8f8f8">
+  <title>Pulsar特性解析[Effectively once] - 无敌小包子</title>
+
+  
+    <meta name="description" content="前言 https:&#x2F;&#x2F;www.splunk.com&#x2F;en_us&#x2F;blog&#x2F;it&#x2F;effectively-once-semantics-in-apache-pulsar.html  pulsar在文章中详细介绍了是如何支持Effectively once的，本文不再重复阐述，下面只把文章中描述的结论做总结。后面会进行源码解析。 为了实现Effectively once，pulsar从两个方面支持：">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Pulsar特性解析[Effectively once]">
+<meta property="og:url" content="https://shibd.github.io/pulsar-effectively-once/">
+<meta property="og:site_name" content="无敌小包子">
+<meta property="og:description" content="前言 https:&#x2F;&#x2F;www.splunk.com&#x2F;en_us&#x2F;blog&#x2F;it&#x2F;effectively-once-semantics-in-apache-pulsar.html  pulsar在文章中详细介绍了是如何支持Effectively once的，本文不再重复阐述，下面只把文章中描述的结论做总结。后面会进行源码解析。 为了实现Effectively once，pulsar从两个方面支持：">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-08-26T23:00:00.000Z">
+<meta property="article:modified_time" content="2021-08-26T23:00:00.000Z">
+<meta property="article:author" content="baozi">
+<meta property="article:tag" content="pulsar">
+<meta name="twitter:card" content="summary">
+  
+  
+
+  <!-- feed -->
+  
+
+  
+    
+<link rel="stylesheet" href="/css/main.css">
+
+  
+
+  
+    <link rel="shortcut icon" href="https://cdn.jsdelivr.net/gh/shibd/blogimage@main/base/apple-touch-icon.png">
+  
+
+  
+</head>
+
+<body>
+  
+
+
+  <div class='l_body' id='start'>
+    <aside class='l_left' layout='post'>
+    
+
+
+<header class="header">
+
+<div class="logo-wrap"><a class="avatar" href="/about/"><div class="bg" style="opacity:0;background-image:url(https://cdn.jsdelivr.net/gh/cdn-x/placeholder@1.0.2/avatar/round/rainbow64@3x.webp);"></div><img no-lazy class="avatar" src="https://cdn.jsdelivr.net/gh/shibd/blogimage@main/base/apple-touch-icon.png" onerror="javascript:this.classList.add('error');this.src='https://cdn.jsdelivr.net/gh/cdn-x/placeholder@1.0.1/image/2659360.svg';"></a><a class="title" href="/%E6%97%A0%E6%95%8C%E5%B0%8F%E5%8C%85%E5%AD%90"><div class="main">无敌小包子</div></a></div>
+<nav class="menu dis-select"><a class="nav-item active" href="/">文章</a><a class="nav-item" href="/wiki/">项目</a><a class="nav-item" href="/about/">关于</a></nav></header>
+
+<div class="widgets">
+
+<div class="widget-wrap single" id="toc"><div class="widget-header cap dis-select"><span class="name">本文目录</span></div><div class="widget-body fs14"><div class="doc-tree active"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Effectively-once-publishing"><span class="toc-text">Effectively-once publishing</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Effectively-once-consumer"><span class="toc-text">Effectively-once consumer</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Message-Deduplication%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90"><span class="toc-text">Message Deduplication源码解析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%88%A4%E6%96%AD%E6%98%AF%E5%90%A6%E6%98%AF%E9%87%8D%E5%A4%8D%E6%B6%88%E6%81%AF"><span class="toc-text">如何判断是否是重复消息?</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#MessageDeduplication%E7%8A%B6%E6%80%81%E6%98%AF%E5%A6%82%E4%BD%95%E6%8C%81%E4%B9%85%E5%8C%96%E7%9A%84"><span class="toc-text">MessageDeduplication状态是如何持久化的?</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8E%A8%E8%8D%90%E9%98%85%E8%AF%BB"><span class="toc-text">推荐阅读</span></a></li></ol></div></div></div>
+
+
+</div>
+<footer class="footer dis-select"><div class="social-wrap"><a class="social" title="GitHub" href="https://github.com/shibd/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/github.svg"/></a><a class="social" title="Spotify" href="https://open.spotify.com/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/music.svg"/></a><a class="social" title="Unsplash" href="https://unsplash.com/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/music.svg"/></a><a class="social" title="Comments" href="/about/#comments" rel="noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/message.svg"/></a></div></footer>
+
+    </aside>
+    <div class='l_main'>
+      
+
+      
+
+
+<div class="bread-nav fs12"><div id="breadcrumb"><a class="cap breadcrumb" href="/">主页</a><span class="sep"></span><a class="cap breadcrumb" href="/">文章</a><span class="sep"></span><a class="cap breadcrumb-link" href="/categories/pulsar/">Pulsar</a></div><div id="post-meta">发布于&nbsp;<time datetime="2021-08-26T23:00:00.000Z">2021年8月26日</time></div></div>
+
+<article class='content md post'>
+<h1 class="article-title"><span>Pulsar特性解析[Effectively once]</span></h1>
+<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><blockquote>
+<p><a target="_blank" rel="noopener" href="https://www.splunk.com/en_us/blog/it/effectively-once-semantics-in-apache-pulsar.html">https://www.splunk.com/en_us/blog/it/effectively-once-semantics-in-apache-pulsar.html</a></p>
+</blockquote>
+<p>pulsar在文章中详细介绍了是如何支持Effectively once的，本文不再重复阐述，下面只把文章中描述的结论做总结。后面会进行源码解析。</p>
+<p>为了实现Effectively once，pulsar从两个方面支持：</p>
+<ol>
+<li>Effectively-once publishing：确保消息只发送一次</li>
+<li>Effectively-once consumer: 确保消费只消费一次</li>
+</ol>
+<h2 id="Effectively-once-publishing"><a href="#Effectively-once-publishing" class="headerlink" title="Effectively-once publishing"></a>Effectively-once publishing</h2><p>pulsar可以支持无论是在broker故障，生产者故障，网络故障等极端情况下保障消息只会在pulsar存储一份。主要依赖pulsar中的<strong>message deduplication</strong>功能保障。pulsar提供了从命名空间，topic等各个维度我开关来控制是否启动**message deduplication **</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pulsar-admin namespaces set-deduplication $MY_NAMESPACE --enable</span><br></pre></td></tr></table></figure>
+
+<p>消息可靠的发给pulsar是通过：producer不断重试 + broker端的<strong>message deduplication</strong>来功能完成的。所以producer还需要设置不断重试配置。通过下面配置实现</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">ProducerConfiguration conf = <span class="keyword">new</span> ProducerConfiguration();</span><br><span class="line">conf.setProducerName(<span class="string">&quot;my-producer&quot;</span>);</span><br><span class="line">conf.setSendTimeout(<span class="number">0</span>, TimeUnit.SECONDS);</span><br><span class="line">Producer producer = client.createProducer(TOPIC_NAME, conf);</span><br></pre></td></tr></table></figure>
+
+<p><strong>message deduplication</strong>实现原理主要是依赖broker端维护了每个producer的highSequenceId，sequenceId是递增的，也可以由用户控制。每次消息到达broker时，都会根据是否小于当下highSequenceId来判断是否是重复消息。</p>
+<p>关于<strong>message deduplication</strong>后面会有更详细的源码解析，这里不再过多阐述，这里要描述一个这种设计的局限性。（读者可以看完更详细的源码解析再来看该功能的局限性）</p>
+<blockquote>
+<p>Effectively-once publishing in practice only makes sense when the messages are coming from a replayable source as opposed to a non-replayable source (for example online HTTP requests). For non-replayable sources, there’s no way to re-send the previous pending messages after a crash.</p>
+</blockquote>
+<p>pulsar为了更高性能的实现<strong>message deduplication</strong>，所以使用了sequenceId的设计，两个局限性：</p>
+<ol>
+<li>不能判断<strong>无重放源的消息</strong>(non-replayable source)去重：比如http请求，每次请求都是无状态随机的，并不能关联到sequenceId。</li>
+<li>只能判断最近一笔消息是否重复：pulsar的设计初衷就是为了应对producer与broker通行时各种故障下实现精确一次消息的生产，并不是为了解决业务消息幂等的。所以如果你的场景是有历史消息还可能重复投递，然后希望根据某个自定义id(idmpotentId)来让pulsar实现消息去重，那么pulsar是不支持的。</li>
+</ol>
+<p>总结，pulsar利用sequenceId实现<strong>message deduplication</strong>性能是非常高的（只有一次hash和判断的损耗），快照以及持久化都是异步执行的。如果要支持上面两个功能，pulsar必然要维护一段时间内所有消息的messageId，并且还要设计如何高效的判断。</p>
+<h2 id="Effectively-once-consumer"><a href="#Effectively-once-consumer" class="headerlink" title="Effectively-once consumer"></a>Effectively-once consumer</h2><p>pulsar只支持两种消费模式，subscribe和reader。</p>
+<p>subscribe模式下，pulsar会保存consumer的消费位点，根据最新位点投递下一笔消息，用户消费完消息后，可以显明主动ack位点。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Consumer consumer = client.subscribe(MY_TOPIC, MY_SUBSCRIPTION_NAME);</span><br><span class="line"></span><br><span class="line"><span class="keyword">while</span> (<span class="keyword">true</span>) &#123;</span><br><span class="line">    Message msg = consumer.receive();</span><br><span class="line">    <span class="comment">// Process the message...</span></span><br><span class="line">    consumer.acknowledge(msg);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>对于subscribe模式来讲，有可能出现下面几种重复消费的情况：</p>
+<ol>
+<li>broker故障：broker故障时，有可能用户消费了该数据并且处理，但是在ack时没有成功，那么broker恢复后会重新投递该笔消息。</li>
+<li>consumer故障：同broker故障一样，消费了该笔消息并且处理，但是在ack之前consumer宕机，那么broker也会重新投递该笔消息。</li>
+<li>网络故障：网络超时等也会造成consumer提交ack时失败，broker重新投递消息。</li>
+<li>重复数据消费（特殊）：正如<strong>Effectively-once publishing</strong>结论中描述的局限性，有可能本身pulsar就存储了重复数据，那么即便没有上面三种故障的情况下，业务端也重复消费了数据。</li>
+</ol>
+<p>针对上面三种故障，其中前3种故障可以使用pulsar的reader模式 + 依赖外部存储当下消费的offset即可解决。但面对本身的重复数据，想要做到幂等，则必须使用一个存储所有消息id的存储来完成。</p>
+<p>reader模式，用户可以主动指定拉取从某个消息开始拉取，用户只需保存好当下消费到的位点即可，比如把lastMessageId的存储和业务状态修改在一个事务内提交。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">MessageId lastMessageId = recoverLastMessageIdFromDB();</span><br><span class="line">Reader reader = client.createReader(MY_TOPIC, lastMessageId,</span><br><span class="line">                                    <span class="keyword">new</span> ReaderConfiguration());</span><br><span class="line"></span><br><span class="line"><span class="keyword">while</span> (<span class="keyword">true</span>) &#123;</span><br><span class="line">    Message msg = reader.readNext();</span><br><span class="line">    <span class="keyword">byte</span>[] msgId = msg.getMessageId().toByteArray();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Process the message and store msgId atomically</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>综上，为了实现完全的消费者精确一次性消费，如果producer端不能保证发送的消息没有重复消息时，则需要consumer端使用一张大的幂等持久化状态存储来实现，当然这个幂等状态可以根据业务场景配置一定的淘汰机制。</p>
+<h2 id="Message-Deduplication源码解析"><a href="#Message-Deduplication源码解析" class="headerlink" title="Message Deduplication源码解析"></a>Message Deduplication源码解析</h2><p>在上面<strong>Effectively-once publishing</strong>描述，我们知道pulsar利用维护producer的maxSequenceId来保障对于某个producer重试时消息的去重。这里简单对源码做解析。</p>
+<p>所有的消息去重逻辑的实现都在MessageDeduplication类当中，每个PersistentTopic对象都持有一个MessageDeduplication对象。</p>
+<h3 id="如何判断是否是重复消息"><a href="#如何判断是否是重复消息" class="headerlink" title="如何判断是否是重复消息?"></a>如何判断是否是重复消息?</h3><p>主要依赖两个集合判断:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@VisibleForTesting</span></span><br><span class="line"><span class="keyword">final</span> ConcurrentOpenHashMap&lt;String, Long&gt; highestSequencedPushed = <span class="keyword">new</span> ConcurrentOpenHashMap&lt;&gt;(<span class="number">16</span>, <span class="number">1</span>);</span><br><span class="line"><span class="keyword">final</span> ConcurrentOpenHashMap&lt;String, Long&gt; highestSequencedPersisted = <span class="keyword">new</span> ConcurrentOpenHashMap&lt;&gt;(<span class="number">16</span>, <span class="number">1</span>);</span><br></pre></td></tr></table></figure>
+<p>这两个集合存储了 produceName对应最大的seuenceId，一个是持久化的，一个是非持久化的，日常判断时都是通过非持久化的判断（高速），后台有个线程定期的打快照，最终判断是否是消息重复主要依赖持久化的。</p>
+<p>PersistentTopic在接收到消息写入时，首先会调用MessageDeduplication#isDuplication来判断是否是重复消息。判断逻辑也很简单，下面为省略后代码。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> MessageDupStatus <span class="title">isDuplicate</span><span class="params">(PublishContext publishContext, ByteBuf headersAndPayload)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// Synchronize the get() and subsequent put() on the map. This would only be relevant if the producer</span></span><br><span class="line">    <span class="comment">// disconnects and re-connects very quickly. At that point the call can be coming from a different thread</span></span><br><span class="line">    <span class="keyword">synchronized</span> (highestSequencedPushed) &#123;</span><br><span class="line">        Long lastSequenceIdPushed = highestSequencedPushed.get(producerName);</span><br><span class="line">        <span class="keyword">if</span> (lastSequenceIdPushed != <span class="keyword">null</span> &amp;&amp; sequenceId &lt;= lastSequenceIdPushed) &#123;</span><br><span class="line">            <span class="keyword">if</span> (log.isDebugEnabled()) &#123;</span><br><span class="line">                log.debug(<span class="string">&quot;[&#123;&#125;] Message identified as duplicated producer=&#123;&#125; seq-id=&#123;&#125; -- highest-seq-id=&#123;&#125;&quot;</span>,</span><br><span class="line">                        topic.getName(), producerName, sequenceId, lastSequenceIdPushed);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">// Also need to check sequence ids that has been persisted.</span></span><br><span class="line">            <span class="comment">// If current message&#x27;s seq id is smaller or equals to the</span></span><br><span class="line">            <span class="comment">// lastSequenceIdPersisted than its definitely a dup</span></span><br><span class="line">            <span class="comment">// If current message&#x27;s seq id is between lastSequenceIdPersisted and</span></span><br><span class="line">            <span class="comment">// lastSequenceIdPushed, then we cannot be sure whether the message is a dup or not</span></span><br><span class="line">            <span class="comment">// we should return an error to the producer for the latter case so that it can retry at a future time</span></span><br><span class="line">            Long lastSequenceIdPersisted = highestSequencedPersisted.get(producerName);</span><br><span class="line">            <span class="keyword">if</span> (lastSequenceIdPersisted != <span class="keyword">null</span> &amp;&amp; sequenceId &lt;= lastSequenceIdPersisted) &#123;</span><br><span class="line">                <span class="keyword">return</span> MessageDupStatus.Dup;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> MessageDupStatus.Unknown;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        highestSequencedPushed.put(producerName, highestSequenceId);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> MessageDupStatus.NotDup;</span><br><span class="line">&#125;      </span><br></pre></td></tr></table></figure>
+<p>可以看到一共返回有三种状态：</p>
+<ul>
+<li>MessageDupStatus.NotDup(非重复消息): 如果producer发送消息的的sequenceId<strong>大于</strong>维护的<strong>内存</strong>的highSequenceId，则一定是重复消息。PersistentTopic会继续执行后续存储步骤。</li>
+<li>MessageDupStatus.Dup(重复消息): 如果sequenceId &lt; highSequenceId, 并且 sequenceId &lt; highPersistentSequenceId，则一定是重复消息。PersistentTopic会返回确认是重复消息。</li>
+<li>MessageDupStatus.Unknown(未知状态): 如果sequenceId &lt; highSequenceId 并且 sequenceId &gt; highPersistentSequenceId，则是未知状态。PersistentTopic会抛出DupUnknownException来使producer端重试</li>
+</ul>
+<p>出现Unknown状态因为highPersistentSequenceId集合和highSequenceId集合的维护时间点是不一样的：</p>
+<ul>
+<li>highSequenceId: 在每次判断结果是NotDup时，则进行highSequenceId集合的更新（消息持久化之前）。</li>
+<li>highPersistentSequenceId: 当实际把消息写入到bk之后，再更新highPersistentSequenceId集合（消息持久化之后）。</li>
+</ul>
+<p>这种设计的初衷是因为pulsar的执行是异步化的，当前一笔消息判断完之后，如果该笔消息还没写入bk成功，下一笔消息再来，为了高并发的处理，这时不应该等待前一笔消息写入完再做该笔消息的判断，所以有了内存的集合和持久化的集合。</p>
+<p>在大多数能写入bk都成功的情况下，highSequenceId和highPersistentSequenceId是能保持一致的，所以不会发生Unknown状态。在发生写入bk异常时，highPersistentSequenceId则不会更新，这时就会发生Unknown状态。PersistentTopic接收到Unknown以及Dup后则会调用MessageDeduplication#resetHighestSequenceIdPushed()方法来用highPersistentSequenceId覆盖highSequenceId集合来保持两个集合的一致性。</p>
+<h3 id="MessageDeduplication状态是如何持久化的"><a href="#MessageDeduplication状态是如何持久化的" class="headerlink" title="MessageDeduplication状态是如何持久化的?"></a>MessageDeduplication状态是如何持久化的?</h3><p>pulsar的每个broker是无状态的，如果某个broker挂机，那么该broker中负责的topic则会调度到另外可用的broker上运行。所以MessageDeduplication的状态应当是具备持久化的。MessageDeduplication中主要需要持久化的状态是：highestSequencedPersisted集合。</p>
+<p>broker在启动时会根据用户的配置启动一个定时线程调用MessageDeduplication#takeSnapshot方法来进行状态快照的持久化。状态是写入bk当中的，使用了ManagedCursor的properties元数据存储。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">takeSnapshot</span><span class="params">(PositionImpl position)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (log.isDebugEnabled()) &#123;</span><br><span class="line">        log.debug(<span class="string">&quot;[&#123;&#125;] Taking snapshot of sequence ids map&quot;</span>, topic.getName());</span><br><span class="line">    &#125;</span><br><span class="line">    Map&lt;String, Long&gt; snapshot = <span class="keyword">new</span> TreeMap&lt;&gt;();</span><br><span class="line">    highestSequencedPersisted.forEach((producerName, sequenceId) -&gt; &#123;</span><br><span class="line">        <span class="keyword">if</span> (snapshot.size() &lt; maxNumberOfProducers) &#123;</span><br><span class="line">            snapshot.put(producerName, sequenceId);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line"></span><br><span class="line">    managedCursor.asyncMarkDelete(position, snapshot, <span class="keyword">new</span> MarkDeleteCallback() &#123;</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">markDeleteComplete</span><span class="params">(Object ctx)</span> </span>&#123;</span><br><span class="line">            <span class="keyword">if</span> (log.isDebugEnabled()) &#123;</span><br><span class="line">                log.debug(<span class="string">&quot;[&#123;&#125;] Stored new deduplication snapshot at &#123;&#125;&quot;</span>, topic.getName(), position);</span><br><span class="line">            &#125;</span><br><span class="line">            lastSnapshotTimestamp = System.currentTimeMillis();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">markDeleteFailed</span><span class="params">(ManagedLedgerException exception, Object ctx)</span> </span>&#123;</span><br><span class="line">            log.warn(<span class="string">&quot;[&#123;&#125;] Failed to store new deduplication snapshot at &#123;&#125;&quot;</span>, topic.getName(), position);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;, <span class="keyword">null</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>那么问题来了，既然状态是异步持久化的，pulsar是如何保证未持久化的状态在飘逸后可以正确恢复呢？</p>
+<p>在broker启动时，首先会从cursor中读取存储的最新状态，然后会从该状态对应的position开始，重新消费到ledger的最新position，然后来保障恢复到该topic下每个producer最新的sequenceId。具体代码可以参考replayCursor方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> CompletableFuture&lt;Void&gt; <span class="title">recoverSequenceIdsMap</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">// Load the sequence ids from the snapshot in the cursor properties</span></span><br><span class="line">    managedCursor.getProperties().forEach((k, v) -&gt; &#123;</span><br><span class="line">        highestSequencedPushed.put(k, v);</span><br><span class="line">        highestSequencedPersisted.put(k, v);</span><br><span class="line">    &#125;);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Replay all the entries and apply all the sequence ids updates</span></span><br><span class="line">    log.info(<span class="string">&quot;[&#123;&#125;] Replaying &#123;&#125; entries for deduplication&quot;</span>, topic.getName(), managedCursor.getNumberOfEntries());</span><br><span class="line">    CompletableFuture&lt;Void&gt; future = <span class="keyword">new</span> CompletableFuture&lt;&gt;();</span><br><span class="line">    replayCursor(future);</span><br><span class="line">    <span class="keyword">return</span> future;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>Pulsar对于实现Effectively once语义是需要用户配合外部存储来完成的，Pulsar只是提供了api以及最佳解决方案。在生产者端，Pulsar通过维护producer对应highSequenceId的关系来实现生产者去重，可以解决具有会溯源的producer的生产者幂等。如果需要Effectively once语义的保证，需要根据具体的业务场景做合适的解决方案。</p>
+<p>业务场景1：具有可会溯源的生产者</p>
+<p>比如，producer端的数据是从文件中读的，可以使用sequenceId来保证生产者幂等。那么可以使用  producer message deduplication + consumer reader模式，这样consumer端只需要依赖外部存储当下消费的lastMessageId即可。</p>
+<p>业务场景2：不具有可会溯源的生产者</p>
+<p>比如，producer端的数据是从http请求发送的，那么则不能使用pulsar producer message deduplication，所以consumer端需要依赖外部存储存储所有的messageId（业务属性的），从而实现Effectively once语义。</p>
+<h2 id="推荐阅读"><a href="#推荐阅读" class="headerlink" title="推荐阅读"></a>推荐阅读</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/WhZq1o12OxuMdtSV2lEf-A">Apache Pulsar 如何保证消息不丢不重？</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.splunk.com/en_us/blog/it/effectively-once-semantics-in-apache-pulsar.html">Effectively-Once Semantics in Apache Pulsar</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.splunk.com/en_us/blog/it/scaling-out-total-order-atomic-broadcast-with-apache-bookkeeper.html">TOAB-Bookkeeper</a></li>
+</ul>
+
+
+<div class="article-footer reveal fs14"><section id="license"><div class="header"><span>许可协议</span></div><div class="body"><p>本文采用 <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">署名-非商业性使用-相同方式共享 4.0 国际</a> 许可协议，转载请注明出处。</p>
+</div></section></div>
+
+</article>
+
+<div class="related-wrap reveal" id="read-next"><section class="header cap theme"><span>接下来阅读</span></section><section class="body fs14"><a id="next" href="/hello-world/">Hello World<span class="note">较早</span></a><div class="line"></div><div class="line"></div><a id="more" href="/archives">检索全部文章</a></section></div>
+
+
+
+
+
+
+  <div class='related-wrap md reveal' id="comments">
+    <div class='cmt-title cap theme'>
+      快来参与讨论吧
+    </div>
+    <div class='cmt-body beaudar'>
+      
+
+<svg class="loading" style="vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2709"><path d="M832 512c0-176-144-320-320-320V128c211.2 0 384 172.8 384 384h-64zM192 512c0 176 144 320 320 320v64C300.8 896 128 723.2 128 512h64z" p-id="2710"></path></svg>
+
+<div id="beaudar" repo="shibd/shibd.github.io" issue-term="pathname" theme="preferred-color-scheme" input-position="top" comment-order="desc" loading="false" branch="master"></div>
+
+    </div>
+  </div>
+
+
+
+      
+<footer class="page-footer reveal fs12"><hr><div class="sitemap"><div class="sitemap-group"><span class="fs14">Blog</span><a href="/">Recent Update</a><a href="/blog/categories/">Categories</a><a href="/blog/tags/">Tags</a><a href="/blog/archives/">Archives</a></div><div class="sitemap-group"><span class="fs14">Wiki</span><a href="/wiki/tags/%E6%8A%80%E6%9C%AF%E5%8A%A0%E6%B2%B9%E7%AB%99/">技术加油站</a><a href="/wiki/">...</a></div><div class="sitemap-group"><span class="fs14">Social</span><a href="/friends/">Friends</a><a href="/about/#comments">Comments</a><a target="_blank" rel="noopener" href="https://open.spotify.com/">Spotify</a></div><div class="sitemap-group"><span class="fs14">More</span><a href="/about/">About</a><a href="/wiki/resume">Resume</a><a target="_blank" rel="noopener" href="https://github.com/shibd">GitHub</a></div></div><div class="text"><object data="https://img.shields.io/static/v1?label=强力驱动&message=Hexo&style=social&logo=Hexo&logoColor=0E83CD&link=https://hexo.io/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=网站部署&message=GitHub&style=social&logo=GitHub&logoColor=181717&link=https://github.com/shibd"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=网站部署&message=Vercel&style=social&logo=Vercel&logoColor=000000&link=https://vercel.com"></object> &nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=图片分发&message=jsDelivr&style=social&logo=jsDelivr&logoColor=E84D3D&link=https://www.jsdelivr.com/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=域名解析&message=Aliyun&style=social&logo=Alibaba Cloud&logoColor=FF6A00&link=https://www.aliyun.com/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=许可协议&message=CC BY-NC-SA 4.0&style=social&logo=Creative Commons&logoColor=EF9421&link=https://creativecommons.org/licenses/by-nc-sa/4.0/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=博客作者&message=Baozi&style=social&logo=Blogger&logoColor=FF5722&link=https://shibd.github.io/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=原创主题&message=Stellar&style=social&logo=Badoo&logoColor=783BF9&link=https://github.com/xaoxuu/hexo-theme-stellar/tree/1.4.0"></object>&nbsp;&nbsp;</div></footer>
+
+      <div class='float-panel mobile-only blur' style='display:none'>
+  <button type='button' class='sidebar-toggle mobile' onclick='sidebar.toggle()'>
+    <svg class="icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="15301"><path d="M566.407 808.3c26.9-0.1 49.3-20.8 51.6-47.6-1.9-27.7-23.9-49.7-51.6-51.6h-412.6c-28.2-1.4-52.6 19.5-55.5 47.6 2.3 26.8 24.6 47.5 51.6 47.6h416.5v4z m309.3-249.9c26.9-0.1 49.3-20.8 51.6-47.6-2.2-26.8-24.6-47.5-51.6-47.6h-721.9c-27.7-2.8-52.5 17.4-55.3 45.1-0.1 0.8-0.1 1.7-0.2 2.5 0.9 27.2 23.6 48.5 50.7 47.6H875.707z m-103.1-245.9c26.9-0.1 49.3-20.8 51.6-47.6-0.4-28.3-23.2-51.1-51.5-51.6h-618.9c-29.5-1.1-54.3 21.9-55.5 51.4v0.2c1.4 27.8 25.2 49.2 53 47.8 0.8 0 1.7-0.1 2.5-0.2h618.8z" p-id="15302"></path><path d="M566.407 808.3c26.9-0.1 49.3-20.8 51.6-47.6-1.9-27.7-23.9-49.7-51.6-51.6h-412.6c-28.2-1.4-52.6 19.5-55.5 47.6 1.9 27.7 23.9 49.7 51.6 51.6h416.5z m309.3-249.9c26.9-0.1 49.3-20.8 51.6-47.6-2.2-26.8-24.6-47.5-51.6-47.6h-721.9c-27.7-2.8-52.5 17.4-55.3 45.1-0.1 0.8-0.1 1.7-0.2 2.5 0.9 27.2 23.6 48.5 50.7 47.6H875.707z m-103.1-245.9c26.9-0.1 49.3-20.8 51.6-47.6-0.4-28.3-23.2-51.1-51.5-51.6h-618.9c-29.5-1.1-54.3 21.9-55.5 51.4v0.2c1.4 27.8 25.2 49.2 53 47.8 0.8 0 1.7-0.1 2.5-0.2h618.8z" p-id="15303"></path></svg>
+  </button>
+</div>
+
+    </div>
+  </div>
+  <div class='scripts'>
+    <script type="text/javascript">
+  stellar = {
+    // 懒加载 css https://github.com/filamentgroup/loadCSS
+    loadCSS: (href, before, media, attributes) => {
+      var doc = window.document;
+      var ss = doc.createElement("link");
+      var ref;
+      if (before) {
+        ref = before;
+      } else {
+        var refs = (doc.body || doc.getElementsByTagName("head")[0]).childNodes;
+        ref = refs[refs.length - 1];
+      }
+      var sheets = doc.styleSheets;
+      if (attributes) {
+        for (var attributeName in attributes) {
+          if (attributes.hasOwnProperty(attributeName)) {
+            ss.setAttribute(attributeName, attributes[attributeName]);
+          }
+        }
+      }
+      ss.rel = "stylesheet";
+      ss.href = href;
+      ss.media = "only x";
+      function ready(cb) {
+        if (doc.body) {
+          return cb();
+        }
+        setTimeout(function () {
+          ready(cb);
+        });
+      }
+      ready(function () {
+        ref.parentNode.insertBefore(ss, before ? ref : ref.nextSibling);
+      });
+      var onloadcssdefined = function (cb) {
+        var resolvedHref = ss.href;
+        var i = sheets.length;
+        while (i--) {
+          if (sheets[i].href === resolvedHref) {
+            return cb();
+          }
+        }
+        setTimeout(function () {
+          onloadcssdefined(cb);
+        });
+      };
+      function loadCB() {
+        if (ss.addEventListener) {
+          ss.removeEventListener("load", loadCB);
+        }
+        ss.media = media || "all";
+      }
+      if (ss.addEventListener) {
+        ss.addEventListener("load", loadCB);
+      }
+      ss.onloadcssdefined = onloadcssdefined;
+      onloadcssdefined(loadCB);
+      return ss;
+    },
+
+    // 从 butterfly 和 volantis 获得灵感
+    loadScript: (src, opt) => new Promise((resolve, reject) => {
+      var script = document.createElement('script');
+      script.src = src;
+      if (opt) {
+        for (let key of Object.keys(opt)) {
+          script[key] = opt[key]
+        }
+      } else {
+        // 默认异步，如果需要同步，第二个参数传入 {} 即可
+        script.async = true
+      }
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    }),
+
+    // https://github.com/jerryc127/hexo-theme-butterfly
+    jQuery: (fn) => {
+      if (typeof jQuery === 'undefined') {
+        stellar.loadScript(stellar.plugins.jQuery).then(fn)
+      } else {
+        fn()
+      }
+    }
+  };
+  stellar.github = 'https://github.com/xaoxuu/hexo-theme-stellar/tree/1.4.1';
+  stellar.config = {
+    date_suffix: {
+      just: '刚刚',
+      min: '分钟前',
+      hour: '小时前',
+      day: '天前',
+      month: '个月前',
+    },
+  };
+
+  // required plugins (only load if needs)
+  stellar.plugins = {
+    jQuery: 'https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js',
+    sitesjs: '/js/plugins/sites.js',
+    friendsjs: '/js/plugins/friends.js',
+  };
+
+  // optional plugins
+  if ('true' == 'true') {
+    stellar.plugins.lazyload = Object.assign({"enable":true,"js":"https://cdn.jsdelivr.net/npm/vanilla-lazyload@17.3.1/dist/lazyload.min.js","transition":"blur"});
+  }
+  if ('true' == 'true') {
+    stellar.plugins.swiper = Object.assign({"enable":true,"css":"https://unpkg.com/swiper/swiper-bundle.min.css","js":"https://unpkg.com/swiper/swiper-bundle.min.js"});
+  }
+  if ('' == 'true') {
+    stellar.plugins.scrollreveal = Object.assign({"enable":null,"js":"https://cdn.jsdelivr.net/npm/scrollreveal@4.0.9/dist/scrollreveal.min.js","distance":"8px","duration":500,"interval":100,"scale":1});
+  }
+  if ('true' == 'true') {
+    stellar.plugins.preload = Object.assign({"enable":true,"service":"flying_pages","instant_page":"https://cdn.jsdelivr.net/gh/volantis-x/cdn-volantis@4.1.2/js/instant_page.js","flying_pages":"https://cdn.jsdelivr.net/gh/gijo-varghese/flying-pages@2.1.2/flying-pages.min.js"});
+  }
+</script>
+
+<!-- required -->
+
+  
+<script src="/js/main.js" async></script>
+
+
+
+<!-- optional -->
+
+  <script>
+  function loadBeaudar() {
+    const els = document.querySelectorAll("#comments #beaudar");
+    if (els.length === 0) return;
+    els.forEach((el, i) => {
+      try {
+        el.innerHTML = '';
+      } catch (error) {
+        console.log(error);
+      }
+      var script = document.createElement('script');
+      script.src = 'https://beaudar.lipk.org/client.js';
+      script.async = true;
+      for (let key of Object.keys(el.attributes)) {
+        let attr = el.attributes[key];
+        if (['class', 'id'].includes(attr.name) === false) {
+          script.setAttribute(attr.name, attr.value);
+        }
+      }
+      el.appendChild(script);
+    });
+  }
+  window.addEventListener('DOMContentLoaded', (event) => {
+      loadBeaudar();
+  });
+</script>
+
+
+
+
+<!-- inject -->
+
+
+  </div>
+</body>
+</html>

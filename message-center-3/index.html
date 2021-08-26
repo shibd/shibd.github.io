@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang='zh-CN'>
+
+<head>
+  <meta name="generator" content="Hexo 5.4.0">
+  <meta charset="utf-8">
+  
+
+  <meta http-equiv='x-dns-prefetch-control' content='on' />
+  <link rel='dns-prefetch' href='https://cdn.jsdelivr.net'>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+  <meta name="renderer" content="webkit">
+  <meta name="force-rendering" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="HandheldFriendly" content="True" >
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" content="#f8f8f8">
+  <title>使用Spring Websocket Stomp协议设计推送中心 - 无敌小包子</title>
+
+  
+    <meta name="description" content="概述本文是WebSocket推送中心的第三章节， 本系列文章是在Spring Websocket Stomp的基础上实现的推送系统，计划包含如下几篇文章： 第一篇：Spring Websocket Stomp介绍第二篇：基于Websocket Stomp的推送中心实现第三篇：推送中心单机支持百万级连接的晋级之路第四篇：推送中心的集群架构方案设计落地&lt;br 本章主线上篇文章介绍了如何使用Web">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Websocket推送中心(三)-单机100W连接(C1000K)达成">
+<meta property="og:url" content="https://shibd.github.io/message-center-3/">
+<meta property="og:site_name" content="无敌小包子">
+<meta property="og:description" content="概述本文是WebSocket推送中心的第三章节， 本系列文章是在Spring Websocket Stomp的基础上实现的推送系统，计划包含如下几篇文章： 第一篇：Spring Websocket Stomp介绍第二篇：基于Websocket Stomp的推送中心实现第三篇：推送中心单机支持百万级连接的晋级之路第四篇：推送中心的集群架构方案设计落地&lt;br 本章主线上篇文章介绍了如何使用Web">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://shibd.github.io/image/message-center/jstack1.jpg">
+<meta property="article:published_time" content="2019-08-17T00:00:00.000Z">
+<meta property="article:modified_time" content="2019-08-17T00:00:00.000Z">
+<meta property="article:author" content="baozi">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="架构">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://shibd.github.io/image/message-center/jstack1.jpg">
+  
+  
+
+  <!-- feed -->
+  
+
+  
+    
+<link rel="stylesheet" href="/css/main.css">
+
+  
+
+  
+    <link rel="shortcut icon" href="/image/base/apple-touch-icon.png">
+  
+
+  
+</head>
+
+<body>
+  
+
+
+  <div class='l_body' id='start'>
+    <aside class='l_left' layout='post'>
+    
+
+
+<header class="header">
+
+<div class="logo-wrap"><a class="avatar" href="/about/"><div class="bg" style="opacity:0;background-image:url(https://cdn.jsdelivr.net/gh/cdn-x/placeholder@1.0.2/avatar/round/rainbow64@3x.webp);"></div><img no-lazy class="avatar" src="/image/base/apple-touch-icon.png" onerror="javascript:this.classList.add('error');this.src='https://cdn.jsdelivr.net/gh/cdn-x/placeholder@1.0.1/image/2659360.svg';"></a><a class="title" href="/%E6%97%A0%E6%95%8C%E5%B0%8F%E5%8C%85%E5%AD%90"><div class="main">无敌小包子</div></a></div>
+<nav class="menu dis-select"><a class="nav-item active" href="/">文章</a><a class="nav-item" href="/wiki/">项目</a><a class="nav-item" href="/about/">关于</a></nav></header>
+
+<div class="widgets">
+
+<div class="widget-wrap single" id="toc"><div class="widget-header cap dis-select"><span class="name">本文目录</span></div><div class="widget-body fs14"><div class="doc-tree active"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A6%82%E8%BF%B0"><span class="toc-text">概述</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9C%AC%E7%AB%A0%E4%B8%BB%E7%BA%BF"><span class="toc-text">本章主线</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%BF%85%E5%A4%87%E7%9F%A5%E8%AF%86"><span class="toc-text">必备知识</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8E%8B%E6%B5%8B%E6%A1%88%E4%BE%8B"><span class="toc-text">压测案例</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%BF%90%E8%A1%8C%E7%8E%AF%E5%A2%83"><span class="toc-text">运行环境</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95%E5%8E%86%E7%A8%8B-1024-500K"><span class="toc-text">测试历程(1024~500K)</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AA%81%E7%A0%B41024%EF%BC%88%E8%B0%83%E6%95%B4%E6%9C%80%E5%A4%A7%E6%96%87%E4%BB%B6%E6%8F%8F%E8%BF%B0%E7%AC%A6%E6%95%B0%E9%87%8F%EF%BC%89"><span class="toc-text">突破1024（调整最大文件描述符数量）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AA%81%E7%A0%B41W%EF%BC%88%E6%9B%B4%E6%8D%A2Spring%E7%9A%84Web%E5%AE%B9%E5%99%A8%EF%BC%89"><span class="toc-text">突破1W（更换Spring的Web容器）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AA%81%E7%A0%B43W%EF%BC%88%E5%A2%9E%E5%8A%A0%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%E7%AB%AF%E5%8F%A3%E8%8C%83%E5%9B%B4%EF%BC%89"><span class="toc-text">突破3W（增加操作系统端口范围）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AA%81%E7%A0%B44W%EF%BC%88%E8%B0%83%E6%95%B4JVM%E8%BF%9B%E7%A8%8B%E5%86%85%E5%AD%98%E5%A4%A7%E5%B0%8F%EF%BC%89"><span class="toc-text">突破4W（调整JVM进程内存大小）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AA%81%E7%A0%B46W%EF%BC%88%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%A2%9E%E5%8A%A0%E8%99%9A%E6%8B%9FIP%EF%BC%89"><span class="toc-text">突破6W（客户端增加虚拟IP）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AA%81%E7%A0%B47W%EF%BC%88%E8%B0%83%E6%95%B4%E6%9C%8D%E5%8A%A1%E7%AB%AFnf-conntrack-max%EF%BC%89"><span class="toc-text">突破7W（调整服务端nf_conntrack_max）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AA%81%E7%A0%B450W%EF%BC%88%E8%B0%83%E6%95%B4tcp-socket%E5%8F%82%E6%95%B0%EF%BC%89"><span class="toc-text">突破50W（调整tcp socket参数）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%B0%83%E4%BC%98%E6%80%BB%E8%A7%88"><span class="toc-text">调优总览</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol></div></div></div>
+
+
+</div>
+<footer class="footer dis-select"><div class="social-wrap"><a class="social" title="GitHub" href="https://github.com/shibd/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/github.svg"/></a><a class="social" title="Spotify" href="https://open.spotify.com/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/music.svg"/></a><a class="social" title="Unsplash" href="https://unsplash.com/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/music.svg"/></a><a class="social" title="Comments" href="/about/#comments" rel="noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/message.svg"/></a></div></footer>
+
+    </aside>
+    <div class='l_main'>
+      
+
+      
+
+
+<div class="bread-nav fs12"><div id="breadcrumb"><a class="cap breadcrumb" href="/">主页</a><span class="sep"></span><a class="cap breadcrumb" href="/">文章</a><span class="sep"></span><a class="cap breadcrumb-link" href="/categories/websocket%E6%8E%A8%E9%80%81%E4%B8%AD%E5%BF%83/">Websocket推送中心</a></div><div id="post-meta">发布于&nbsp;<time datetime="2019-08-17T00:00:00.000Z">2019年8月17日</time></div></div>
+
+<article class='content md post'>
+<h1 class="article-title"><span>Websocket推送中心(三)-单机100W连接(C1000K)达成</span></h1>
+<h3 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h3><p>本文是WebSocket推送中心的第三章节， 本系列文章是在Spring Websocket Stomp的基础上实现的推送系统，计划包含如下几篇文章：</p>
+<p><strong>第一篇</strong>：<a href="../message-center-1">Spring Websocket Stomp介绍</a><br><br><strong>第二篇</strong>：<a href="../message-center-2">基于Websocket Stomp的推送中心实现</a><br><br><strong>第三篇</strong>：<a href="../message-center-3">推送中心单机支持百万级连接的晋级之路</a><br><br><strong>第四篇</strong>：<a href="../message-center-4">推送中心的集群架构方案设计落地</a>&lt;br</p>
+<h3 id="本章主线"><a href="#本章主线" class="headerlink" title="本章主线"></a>本章主线</h3><p>上篇文章介绍了如何使用WebSocket和STOMP来实现推送中心的需求，确定了单体下推送中心功能。本章将分享推送中心在服务器单体如何支持百万级连接，从测试案例编写开始，一步一步进行服务器调优，踩坑，突破连接数，最后达到百万连接的过程。</p>
+<h3 id="必备知识"><a href="#必备知识" class="headerlink" title="必备知识"></a>必备知识</h3><p>我们在谈单机支持百万连接前，先来明确一些结论。</p>
+<p>对于服务器，Linux内核是通过（local_ip，local_port，remote_ip，remote_port）四元组来标识一条TCP连接的。</p>
+<p>对于WebSocket服务端，local_ip和local_port是确定的，所以在内存和cpu足够的情况下，服务端不会出现瓶颈。在现代CPU和内存的配置下，服务器支持百万级连接实际是很轻松的。</p>
+<p>对于WebSocket客户端，如果我们使用Linux服务器作为客户端来压测Websocekt服务的话，在一个客户端服务器下，由于remote_ip是固定的，所以每一条连接需要占用客户端服务器的一个remote_port。对于Linux服务器来说，net.ipv4.ip_local_port_range最大端口值为65535，所以一个客户端压测试最大可以压满65535条连接。</p>
+<h3 id="压测案例"><a href="#压测案例" class="headerlink" title="压测案例"></a>压测案例</h3><p>计划是通过一个客户端进程发起百万连接（暂时不考虑单机65535端口限制，后面有解决方案）。这里客户端采用Java编写，官方提供了Websocket STOMP Client使用教程，这里对代码稍作调整，使用线程池并发发起连接，并且做了连接失败重试等处理。完整代码<a target="_blank" rel="noopener" href="https://github.com/shibd/msg-center/tree/master/benchmark">参考github</a></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span>: baozi</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@date</span>: 2019/8/9 14:57</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@description</span>:</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">StompClient</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">static</span> String TOKEN = <span class="string">&quot;eyJ1c2VyTmFtZSI6Ind1ZGl4aWFvYmFvemkiLCJhbGciOiJSUzI1NiJ9.eyJleHAiOjE1Njc1OTE1NDYsInVzZXJOYW1lIjoid3VkaXhpYW9iYW96aSIsImlhdCI6MTU2NDk5OTU0Nn0.dEJzjgwwZCL6qh3NtluVSo0uZZZdUEzrNF2pLsUxprVOSE-pzaUVlOw2EmntXd4IpFs3qI0IwA4F51VOFIX65lc1RoX93AFeb44CYt9JpXKcGtGYWQr2D4nsNMaS7je8abtastBC8QIInCYtC7s8tvaAQRzYTvCZmSM8vtgu06g&quot;</span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">static</span> String REQ_URL = <span class="string">&quot;ws://127.0.0.1:8080/msg-center/websocket&quot;</span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">static</span> WebSocketStompClient stompClient;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">static</span> MyStompSessionHandler sessionHandler;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">long</span> clientThreadNum = <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">if</span> (args.length &gt; <span class="number">0</span> &amp;&amp; !StringUtils.isEmpty(args[<span class="number">0</span>])) &#123;</span><br><span class="line">      clientThreadNum = Long.valueOf(args[<span class="number">0</span>]);</span><br><span class="line">      System.out.println(<span class="string">&quot;客户端建立链接数:&quot;</span> + clientThreadNum);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (args.length &gt; <span class="number">1</span> &amp;&amp; !StringUtils.isEmpty(args[<span class="number">1</span>])) &#123;</span><br><span class="line">      REQ_URL = <span class="string">&quot;ws://&quot;</span> + args[<span class="number">1</span>] + <span class="string">&quot;/msg-center/websocket&quot;</span>;</span><br><span class="line">      System.out.println(<span class="string">&quot;远程连接地址:&quot;</span> + args[<span class="number">1</span>]);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    List&lt;Transport&gt; transports = <span class="keyword">new</span> ArrayList&lt;&gt;(<span class="number">1</span>);</span><br><span class="line">    transports.add(<span class="keyword">new</span> WebSocketTransport(<span class="keyword">new</span> StandardWebSocketClient()));</span><br><span class="line">    WebSocketClient transport = <span class="keyword">new</span> SockJsClient(transports);</span><br><span class="line">    stompClient = <span class="keyword">new</span> WebSocketStompClient(transport);</span><br><span class="line"></span><br><span class="line">    stompClient.setMessageConverter(<span class="keyword">new</span> StringMessageConverter());</span><br><span class="line">    sessionHandler = <span class="keyword">new</span> MyStompSessionHandler();</span><br><span class="line"></span><br><span class="line">    ExecutorService executorService = <span class="keyword">new</span> ThreadPoolExecutor(<span class="number">50</span>, <span class="number">1000</span>, <span class="number">60L</span>, TimeUnit.SECONDS,</span><br><span class="line">        <span class="keyword">new</span> LinkedBlockingQueue&lt;&gt;(<span class="number">500</span>));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 每条线程处理链接数</span></span><br><span class="line">    <span class="keyword">long</span> singeDelNum = <span class="number">100</span>;</span><br><span class="line">    <span class="keyword">while</span> (clientThreadNum &gt; <span class="number">0</span>) &#123;</span><br><span class="line">      <span class="keyword">long</span> delNum = clientThreadNum &gt; singeDelNum ? singeDelNum : clientThreadNum;</span><br><span class="line">      <span class="keyword">try</span> &#123;</span><br><span class="line">        executorService.submit(<span class="keyword">new</span> DealThread(delNum));</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">        Thread.sleep(<span class="number">5000</span>);</span><br><span class="line">        <span class="keyword">continue</span>;</span><br><span class="line">      &#125;</span><br><span class="line">      clientThreadNum -= singeDelNum;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 定时打印counter</span></span><br><span class="line">    <span class="keyword">new</span> Thread(() -&gt; &#123;</span><br><span class="line">      <span class="keyword">while</span> (<span class="keyword">true</span>) &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">          Thread.sleep(<span class="number">5000</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">          e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">        System.out.println(<span class="string">&quot;counter: &quot;</span> + sessionHandler.getCounter());</span><br><span class="line"></span><br><span class="line">      &#125;</span><br><span class="line">    &#125;).start();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (<span class="keyword">true</span>) &#123;</span><br><span class="line">      Thread.sleep(Integer.MAX_VALUE);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">DealThread</span> <span class="keyword">implements</span> <span class="title">Runnable</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">long</span> dealNum;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">DealThread</span><span class="params">(<span class="keyword">long</span> dealNum)</span> </span>&#123;</span><br><span class="line">      <span class="keyword">this</span>.dealNum = dealNum;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">      <span class="keyword">int</span> waitTime = <span class="number">1</span>;</span><br><span class="line">      <span class="keyword">while</span> (dealNum &gt; <span class="number">0</span>) &#123;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">          Thread.sleep(waitTime);</span><br><span class="line"></span><br><span class="line">          StompHeaders stompHeaders = <span class="keyword">new</span> StompHeaders();</span><br><span class="line">          stompHeaders.put(<span class="string">&quot;token&quot;</span>, Arrays.asList(TOKEN));</span><br><span class="line">          stompHeaders.put(<span class="string">&quot;projectId&quot;</span>, Arrays.asList(<span class="string">&quot;fm&quot;</span>));</span><br><span class="line"></span><br><span class="line">          <span class="comment">// 设置心跳</span></span><br><span class="line">          <span class="comment">// stompClient.setTaskScheduler();</span></span><br><span class="line">          <span class="comment">// stompHeaders.setHeartbeat(new long[] &#123; 10000, 10000 &#125;);</span></span><br><span class="line"></span><br><span class="line">          ListenableFuture&lt;StompSession&gt; connect = stompClient.connect(<span class="keyword">new</span> URI(REQ_URL), <span class="keyword">null</span>, stompHeaders,</span><br><span class="line">              sessionHandler);</span><br><span class="line"></span><br><span class="line">          StompSession stompSession = connect.get();</span><br><span class="line">          <span class="keyword">if</span> (stompSession == <span class="keyword">null</span>) &#123;</span><br><span class="line">            waitTime += <span class="number">3000</span>;</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">          &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">          System.out.println(<span class="string">&quot;this si errer ,retry:&quot;</span> + waitTime);</span><br><span class="line">          e.printStackTrace();</span><br><span class="line">          waitTime += <span class="number">3000</span>;</span><br><span class="line">          <span class="keyword">continue</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 走到后面说明连接成功,置回正常等待时间,处理下一位</span></span><br><span class="line">        <span class="keyword">if</span> (waitTime &gt; <span class="number">3000</span>) &#123;</span><br><span class="line">          waitTime = <span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        dealNum--;</span><br><span class="line">      &#125;</span><br><span class="line">      System.out.println(Thread.currentThread().getName() + <span class="string">&quot; is die&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>启动客户端时动态传入连接数进行压测</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">java -jar benchmark-1.0-SNAPSHOT.jar 1000 127.0.0.1</span><br></pre></td></tr></table></figure>
+
+<h3 id="运行环境"><a href="#运行环境" class="headerlink" title="运行环境"></a>运行环境</h3><blockquote>
+<p>1台服务端：16G内存，8核CPU<br><br>1台客户端：16G内存，8核CPU</p>
+</blockquote>
+<p>开始默认配置，未对操作系统和Java虚拟机做任何参数调优。</p>
+<h3 id="测试历程-1024-500K"><a href="#测试历程-1024-500K" class="headerlink" title="测试历程(1024~500K)"></a>测试历程(1024~500K)</h3><p>虽然很多文章都介绍了C1000K在现代硬件机器的情况下都是很容易达到的。笔者在亲自试验后还是有很多坑存在，下面记录从1024到100W各个阶段踩坑的过程(一步一个坎)，出现问题发现问题的解决过程。</p>
+<p>根据前两篇文章我们清楚，推送中心的服务端是用的Spring WebSocket STOMP框架，其实网络这一层都是用的Spring封装的框架，并没有深入研究，所以对于Spring WebSocket的实现是否能支持C1000K的连接，我们来测试一下吧！</p>
+<blockquote>
+<p><a target="_blank" rel="noopener" href="https://github.com/shibd/msg-center/tree/master/benchmark">github完整代码</a></p>
+</blockquote>
+<h4 id="突破1024（调整最大文件描述符数量）"><a href="#突破1024（调整最大文件描述符数量）" class="headerlink" title="突破1024（调整最大文件描述符数量）"></a>突破1024（调整最大文件描述符数量）</h4><p>1台客户端压测虽然有65535的限制，期初先测试1W看看是否正常。在服务端正常启动后，客户端启动传入1W压测1W连接。发现客户端和服务端都在大概1024个连接后报错：<code>open file many</code>。</p>
+<p>好了，我们遇到了服务器调优的第一个瓶颈：<code>操作系统最大文件符限制</code>，执行<code>ulimit -n</code>查看发现默认的进程的最大打开文件描述符为1024，和报错信息时的连接数一致。</p>
+<p><strong>🚑解决办法</strong></p>
+<p>⭐️ 系统最大打开文件描述符数：<code>/proc/sys/fs/file-max</code> <br></p>
+<ul>
+<li>临时设置：<code>echo 1000000 &gt; /proc/sys/fs/file-max</code> <br></li>
+<li>永久设置：修改<code>/etc/sysctl.conf</code>文件，增加<code>fs.file-max = 1000000</code> <br></li>
+</ul>
+<p>⭐️ 进程最大打开文件描述符数: <code>ulimit -n</code><br></p>
+<ul>
+<li>临时设置：<code>ulimit -n 1000000</code>。<br></li>
+<li>永久设置：修改<code>/etc/security/limits.conf</code>文件，增加下面的行<br></li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">*         hard    nofile      1000000</span><br><span class="line">*         soft    nofile      1000000</span><br><span class="line">root      hard    nofile      1000000</span><br><span class="line">root      soft    nofile      1000000</span><br></pre></td></tr></table></figure>
+
+<p>还有一点要注意的就是hard limit不能大于<code>/proc/sys/fs/nr_open</code>，因此有时你也需要修改nr_open的值。<br>执行<code>echo 2000000 &gt; /proc/sys/fs/nr_open</code></p>
+<h4 id="突破1W（更换Spring的Web容器）"><a href="#突破1W（更换Spring的Web容器）" class="headerlink" title="突破1W（更换Spring的Web容器）"></a>突破1W（更换Spring的Web容器）</h4><p>服务端和客户端操作系统增加了文件描述符后，成功突破了1024个连接数，但是在连接数达到1W时，服务端出现假死状态，任何http请求查询无响应。观察服务端内存，负载情况都没问题。</p>
+<p>⭐️ <strong>操作系统还是应用程序问题</strong></p>
+<p>期初一直怀疑是服务器有问题，怀疑是否是操作系统参数没调好导致的。所以就尝试在连接数达到1W后，在服务器上用<code>curl http:127.0.0.1:8080/msg-center</code>访问，发现请求照样阻塞，神奇的是，当客户端连接减少1个到9999时，其他请求就能打入。这种情况基本确定是某配置导致的，不是操作系统和应用程序出现了瓶颈。</p>
+<p>另外使用<code>tcpdump -i lo</code>抓取本地回环网卡的包，发现在1W连接时虽然执行<code>curl http:127.0.0.1:8080/msg-center</code>阻塞，但是TCP三次握手是正常的，所以排除操作系统问题，基本确定是应用程序的问题。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">07:00:18.997400 IP localhost.35750 &gt; localhost.webcache: Flags [S], seq 1878590917, win 43690, options [mss 65495,sackOK,TS val 1152127886 ecr 0,nop,wscale 6], length 0</span><br><span class="line">07:00:18.997412 IP localhost.webcache &gt; localhost.35750: Flags [S.], seq 4293714672, ack 1878590918, win 43690, options [mss 65495,sackOK,TS val 1152127886 ecr 1152127886,nop,wscale 6], length 0</span><br><span class="line">07:00:18.997421 IP localhost.35750 &gt; localhost.webcache: Flags [.], ack 1, win 683, options [nop,nop,TS val 1152127886 ecr 1152127886], length 0</span><br><span class="line">07:00:18.997485 IP localhost.35750 &gt; localhost.webcache: Flags [P.], seq 1:89, ack 1, win 683, options [nop,nop,TS val 1152127886 ecr 1152127886], length 88: HTTP: GET /msg-center HTTP/1.1</span><br><span class="line">07:00:18.997489 IP localhost.webcache &gt; localhost.35750: Flags [.], ack 89, win 683, options [nop,nop,TS val 1152127886 ecr 1152127886], length 0</span><br></pre></td></tr></table></figure>
+
+<p>⭐️ <strong>排查服务端Java程序</strong></p>
+<ol>
+<li>执行<code>jstat -gc pid</code>观察内存使用情况，发现内存使用正常，GC正常，没有负载，没有问题。</li>
+<li>执行<code>jstack pid</code>查看线程状态，发现在连接数达到1W时有大量的tomcat线程处于<code>WAITING</code>状态，其中一段有关<code>tomcat</code>的Acceptor的<code>countUpOrAwaitConnection</code>方法，看名字有点像接收器，难道是这个停止了吗？<br><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/message-center/jstack1.jpg"></li>
+</ol>
+<p>查看源码，done，找到问题，tomcat默认最大连接数是10000</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">int</span> maxConnections = <span class="number">10000</span>;</span><br><span class="line"><span class="function"><span class="keyword">protected</span> LimitLatch <span class="title">initializeConnectionLatch</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (maxConnections==-<span class="number">1</span>) <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">    <span class="keyword">if</span> (connectionLimitLatch==<span class="keyword">null</span>) &#123;</span><br><span class="line">        connectionLimitLatch = <span class="keyword">new</span> LimitLatch(getMaxConnections());</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> connectionLimitLatch;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>🚑解决办法</strong></p>
+<ol>
+<li>在application.yml中修改tomcat最大连接数<code>server.tomcat.max-connections: 1000000</code>。</li>
+<li>或者更换Spring默认的web容器为<code>undertow</code>，修改pom文件。<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">&lt;dependency&gt;</span><br><span class="line">    &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;</span><br><span class="line">    &lt;artifactId&gt;spring-boot-starter-web&lt;/artifactId&gt;</span><br><span class="line">    &lt;exclusions&gt;</span><br><span class="line">        &lt;exclusion&gt;</span><br><span class="line">            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;</span><br><span class="line">            &lt;artifactId&gt;spring-boot-starter-tomcat&lt;/artifactId&gt;</span><br><span class="line">        &lt;/exclusion&gt;</span><br><span class="line">    &lt;/exclusions&gt;</span><br><span class="line">&lt;/dependency&gt;</span><br><span class="line">&lt;dependency&gt;</span><br><span class="line">    &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;</span><br><span class="line">    &lt;artifactId&gt;spring-boot-starter-undertow&lt;/artifactId&gt;</span><br><span class="line">&lt;/dependency&gt;</span><br></pre></td></tr></table></figure></li>
+</ol>
+<h4 id="突破3W（增加操作系统端口范围）"><a href="#突破3W（增加操作系统端口范围）" class="headerlink" title="突破3W（增加操作系统端口范围）"></a>突破3W（增加操作系统端口范围）</h4><p>修改了Spring的web容器为<code>undertow</code>，连接数突破了1W的限制，在望更高的链接数压测时，链接大概达到3W的时候，客户端报错，看信息是客户端端口申请不到了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">Caused by: java.net.BindException: Cannot assign requested address</span><br><span class="line">        at sun.nio.ch.Net.connect0(Native Method)</span><br><span class="line">        at sun.nio.ch.Net.connect(Net.java:454)</span><br><span class="line">        at sun.nio.ch.Net.connect(Net.java:446)</span><br><span class="line">        at sun.nio.ch.UnixAsynchronousSocketChannelImpl.implConnect(UnixAsynchronousSocketChannelImpl.java:326)</span><br><span class="line">        at sun.nio.ch.AsynchronousSocketChannelImpl.connect(AsynchronousSocketChannelImpl.java:199)</span><br><span class="line">        at org.apache.tomcat.websocket.WsWebSocketContainer.connectToServerRecursive(WsWebSocketContainer.java:305)</span><br><span class="line">        ... 4 more</span><br></pre></td></tr></table></figure>
+<p><strong>🚑解决办法</strong></p>
+<p>我们知道服务器端口是从0~65535，但是操作系统会预留很多端口出来，我们这里减少操作系统的预留端口即可。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vim /etc/sysctl.conf</span><br><span class="line">net.ipv4.ip_local_port_range = 1024 65535</span><br><span class="line">sysctl -p</span><br></pre></td></tr></table></figure>
+
+<h4 id="突破4W（调整JVM进程内存大小）"><a href="#突破4W（调整JVM进程内存大小）" class="headerlink" title="突破4W（调整JVM进程内存大小）"></a>突破4W（调整JVM进程内存大小）</h4><p>连接数达到4W时，客户端/服务端会报错OOM，通过<code>jstat -gc pid</code>观察Java进程，老年代GC特别频繁，堆内存不够用了。</p>
+<p><strong>🚑解决办法</strong></p>
+<p>加大JVM内存即可</p>
+<p><code>java -Xmx10G -Xms8G -XshowSettings:vm -jar benchmark-1.0-SNAPSHOT.jar 70000 139.217.99.53:8080</code></p>
+<h4 id="突破6W（客户端增加虚拟IP）"><a href="#突破6W（客户端增加虚拟IP）" class="headerlink" title="突破6W（客户端增加虚拟IP）"></a>突破6W（客户端增加虚拟IP）</h4><p>虽然外面在<strong>突破3W</strong>内容中增大了客户端的端口范围，但是单客户端端口上线为65535，在压满后照样会报错<code>Cannot assign requested address</code>，如果朝着服务端支持100W连接压测，那就需要10多台客户机才行。</p>
+<p><strong>🚑解决办法</strong></p>
+<p>可以增加更多的网卡，也可以使用虚拟IP来实现。比如可以使用命令增加20个IP地址，那么客户端就可以发起100多W条连接，可以使用下面命令给某网卡增加虚拟ip：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ifconfig eth0:<span class="number">0</span> <span class="number">192.168</span><span class="number">.10</span><span class="number">.10</span> netmask <span class="number">255.255</span><span class="number">.255</span><span class="number">.0</span> up</span><br><span class="line">ifconfig eth0:<span class="number">1</span> <span class="number">192.168</span><span class="number">.10</span><span class="number">.11</span> netmask <span class="number">255.255</span><span class="number">.255</span><span class="number">.0</span> up</span><br><span class="line">ifconfig eth0:<span class="number">2</span> <span class="number">192.168</span><span class="number">.10</span><span class="number">.12</span> netmask <span class="number">255.255</span><span class="number">.255</span><span class="number">.0</span> up</span><br></pre></td></tr></table></figure>
+
+
+<h4 id="突破7W（调整服务端nf-conntrack-max）"><a href="#突破7W（调整服务端nf-conntrack-max）" class="headerlink" title="突破7W（调整服务端nf_conntrack_max）"></a>突破7W（调整服务端nf_conntrack_max）</h4><p>当连接数达到6W多的时候, 客户端压测程序开始报错连接失败: <code>The HTTP request to initiate the WebSocket connection failed</code>。服务端日志无报错，使用<code>curl http:127.0.0.1:8080/msg-center</code>发现同样无响应，但是不同的是使用<code>tcpdump</code>没有抓到tcp握手的包。怀疑是从操作系统层面把连接丢弃了。</p>
+<p>使用<code>dmesg</code>命令查看系统信息，发现有大量的<code>nf_conntrack: table full, dropping packet</code>日志，问题很明显，<code>nf_conntrack</code>模块报错丢弃了包。</p>
+<p><strong>🚑解决办法</strong></p>
+<p><code>vim /etc/sysctl.conf</code>增加一行 <code>net.nf_conntrack_max = 2000000</code>，执行<code>sysctl -p</code>生效。</p>
+<p>有些操作系统没有启动<code>nf_conntrack</code>模块，则不会遇到该问题。</p>
+<h4 id="突破50W（调整tcp-socket参数）"><a href="#突破50W（调整tcp-socket参数）" class="headerlink" title="突破50W（调整tcp socket参数）"></a>突破50W（调整tcp socket参数）</h4><p>突破了7W的连接，本以为后面一番风顺，可以一直压了，大概到50W的时候，又出现了服务端假死的情况，同样适用<code>dmesg</code>命令查看，发现出现大量<code>TCP: too many of orphaned sockets</code>的错误，错误显示<code>tcp socket</code>过多。</p>
+<p><strong>🚑解决办法</strong></p>
+<p>这时候需要调整<code>tcp socket</code>参数了，关于参数的说明可以google学习。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">echo &quot;net.ipv4.tcp_mem = 786432 2097152 3145728&quot;&gt;&gt; /etc/sysctl.conf</span><br><span class="line">echo &quot;net.ipv4.tcp_rmem = 4096 4096 16777216&quot;&gt;&gt; /etc/sysctl.conf</span><br><span class="line">echo &quot;net.ipv4.tcp_wmem = 4096 4096 16777216&quot;&gt;&gt; /etc/sysctl.conf</span><br></pre></td></tr></table></figure>
+<p>执行<code>sysctl -p</code>生效，大功告成！</p>
+<h4 id="调优总览"><a href="#调优总览" class="headerlink" title="调优总览"></a>调优总览</h4><p>从1024到100W其实调整的参数也就没几个，简单总结一下。</p>
+<ul>
+<li>更换Spring的Web容器为<code>undertow</code>。</li>
+<li>服务端和客户端。<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">   echo &quot;* - nofile 1048576&quot; &gt;&gt; /etc/security/limits.conf</span><br><span class="line">   echo &quot;fs.file-max = 1048576&quot; &gt;&gt; /etc/sysctl.conf</span><br><span class="line">   echo &quot;net.ipv4.ip_local_port_range = 1024 65535&quot; &gt;&gt; /etc/sysctl.conf</span><br><span class="line">echo &quot;net.nf_conntrack_max = 2000000&quot; &gt;&gt; /etc/sysctl.conf</span><br><span class="line"> </span><br><span class="line">   echo &quot;net.ipv4.tcp_mem = 786432 2097152 3145728&quot; &gt;&gt; /etc/sysctl.conf</span><br><span class="line">   echo &quot;net.ipv4.tcp_rmem = 4096 4096 16777216&quot; &gt;&gt; /etc/sysctl.conf</span><br><span class="line">   echo &quot;net.ipv4.tcp_wmem = 4096 4096 16777216&quot; &gt;&gt; /etc/sysctl.conf</span><br></pre></td></tr></table></figure></li>
+<li>增加服务端和客户端JVM的内存大小。</li>
+</ul>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>到此，服务端通过调优，单体推送中心支持了百万级的连接，实际公司目前还没有这么大的规模。目前并没有测试百万连接下，推送数据，心跳保持是否正常。后续会测试再完善。</p>
+<p>推送中心到此，设计和性能压测都已经完毕，但到现在为止还是单体的。那么推送中心如何做集群，集群模式下怎样共享数据，怎样高可用，怎样实现横向扩展，下章节会分享。</p>
+<blockquote>
+<p><a target="_blank" rel="noopener" href="https://github.com/shibd/socket.io.java.server.biz/tree/done/stomp">推送中心地址</a></p>
+</blockquote>
+<br>
+
+<p>参考文章:</p>
+<ul>
+<li> <a target="_blank" rel="noopener" href="https://colobu.com/2015/05/22/implement-C1000K-servers-by-spray-netty-undertow-and-node-js/#%E6%9C%80%E5%A4%A7%E6%96%87%E4%BB%B6%E6%8F%8F%E8%BF%B0%E7%AC%A6">使用四种框架分别实现百万websocket常连接的服务器</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.blogjava.net/yongboy/archive/2013/04/11/397677.html">100万并发连接服务器笔记之1M并发连接目标达成</a></li>
+</ul>
+
+
+<div class="article-footer reveal fs14"><section id="license"><div class="header"><span>许可协议</span></div><div class="body"><p>本文采用 <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">署名-非商业性使用-相同方式共享 4.0 国际</a> 许可协议，转载请注明出处。</p>
+</div></section></div>
+
+</article>
+
+<div class="related-wrap reveal" id="read-next"><section class="header cap theme"><span>接下来阅读</span></section><section class="body fs14"><a id="next" href="/message-center-2/">Websocket推送中心(二)-基于Stomp的推送中心设计<span class="note">较早</span></a><div class="line"></div><a id="prev" href="/message-center-4/">Websocket推送中心(四)-推送中心的集群架构<span class="note">较新</span></a><div class="line"></div><a id="more" href="/archives">检索全部文章</a></section></div>
+
+
+
+
+
+
+  <div class='related-wrap md reveal' id="comments">
+    <div class='cmt-title cap theme'>
+      快来参与讨论吧
+    </div>
+    <div class='cmt-body beaudar'>
+      
+
+<svg class="loading" style="vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2709"><path d="M832 512c0-176-144-320-320-320V128c211.2 0 384 172.8 384 384h-64zM192 512c0 176 144 320 320 320v64C300.8 896 128 723.2 128 512h64z" p-id="2710"></path></svg>
+
+<div id="beaudar" repo="shibd/shibd.github.io" issue-term="pathname" theme="preferred-color-scheme" input-position="top" comment-order="desc" loading="false" branch="master"></div>
+
+    </div>
+  </div>
+
+
+
+      
+<footer class="page-footer reveal fs12"><hr><div class="sitemap"><div class="sitemap-group"><span class="fs14">Blog</span><a href="/">Recent Update</a><a href="/blog/categories/">Categories</a><a href="/blog/tags/">Tags</a><a href="/blog/archives/">Archives</a></div><div class="sitemap-group"><span class="fs14">Wiki</span><a href="/wiki/tags/%E6%8A%80%E6%9C%AF%E5%8A%A0%E6%B2%B9%E7%AB%99/">技术加油站</a><a href="/wiki/">...</a></div><div class="sitemap-group"><span class="fs14">Social</span><a href="/friends/">Friends</a><a href="/about/#comments">Comments</a><a target="_blank" rel="noopener" href="https://open.spotify.com/">Spotify</a></div><div class="sitemap-group"><span class="fs14">More</span><a href="/about/">About</a><a href="/wiki/resume">Resume</a><a target="_blank" rel="noopener" href="https://github.com/shibd">GitHub</a></div></div><div class="text"><object data="https://img.shields.io/static/v1?label=强力驱动&message=Hexo&style=social&logo=Hexo&logoColor=0E83CD&link=https://hexo.io/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=网站部署&message=GitHub&style=social&logo=GitHub&logoColor=181717&link=https://github.com/shibd"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=网站部署&message=Vercel&style=social&logo=Vercel&logoColor=000000&link=https://vercel.com"></object> &nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=图片分发&message=jsDelivr&style=social&logo=jsDelivr&logoColor=E84D3D&link=https://www.jsdelivr.com/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=域名解析&message=Aliyun&style=social&logo=Alibaba Cloud&logoColor=FF6A00&link=https://www.aliyun.com/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=许可协议&message=CC BY-NC-SA 4.0&style=social&logo=Creative Commons&logoColor=EF9421&link=https://creativecommons.org/licenses/by-nc-sa/4.0/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=博客作者&message=Baozi&style=social&logo=Blogger&logoColor=FF5722&link=https://shibd.github.io/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=原创主题&message=Stellar&style=social&logo=Badoo&logoColor=783BF9&link=https://github.com/xaoxuu/hexo-theme-stellar/tree/1.4.0"></object>&nbsp;&nbsp;</div></footer>
+
+      <div class='float-panel mobile-only blur' style='display:none'>
+  <button type='button' class='sidebar-toggle mobile' onclick='sidebar.toggle()'>
+    <svg class="icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="15301"><path d="M566.407 808.3c26.9-0.1 49.3-20.8 51.6-47.6-1.9-27.7-23.9-49.7-51.6-51.6h-412.6c-28.2-1.4-52.6 19.5-55.5 47.6 2.3 26.8 24.6 47.5 51.6 47.6h416.5v4z m309.3-249.9c26.9-0.1 49.3-20.8 51.6-47.6-2.2-26.8-24.6-47.5-51.6-47.6h-721.9c-27.7-2.8-52.5 17.4-55.3 45.1-0.1 0.8-0.1 1.7-0.2 2.5 0.9 27.2 23.6 48.5 50.7 47.6H875.707z m-103.1-245.9c26.9-0.1 49.3-20.8 51.6-47.6-0.4-28.3-23.2-51.1-51.5-51.6h-618.9c-29.5-1.1-54.3 21.9-55.5 51.4v0.2c1.4 27.8 25.2 49.2 53 47.8 0.8 0 1.7-0.1 2.5-0.2h618.8z" p-id="15302"></path><path d="M566.407 808.3c26.9-0.1 49.3-20.8 51.6-47.6-1.9-27.7-23.9-49.7-51.6-51.6h-412.6c-28.2-1.4-52.6 19.5-55.5 47.6 1.9 27.7 23.9 49.7 51.6 51.6h416.5z m309.3-249.9c26.9-0.1 49.3-20.8 51.6-47.6-2.2-26.8-24.6-47.5-51.6-47.6h-721.9c-27.7-2.8-52.5 17.4-55.3 45.1-0.1 0.8-0.1 1.7-0.2 2.5 0.9 27.2 23.6 48.5 50.7 47.6H875.707z m-103.1-245.9c26.9-0.1 49.3-20.8 51.6-47.6-0.4-28.3-23.2-51.1-51.5-51.6h-618.9c-29.5-1.1-54.3 21.9-55.5 51.4v0.2c1.4 27.8 25.2 49.2 53 47.8 0.8 0 1.7-0.1 2.5-0.2h618.8z" p-id="15303"></path></svg>
+  </button>
+</div>
+
+    </div>
+  </div>
+  <div class='scripts'>
+    <script type="text/javascript">
+  stellar = {
+    // 懒加载 css https://github.com/filamentgroup/loadCSS
+    loadCSS: (href, before, media, attributes) => {
+      var doc = window.document;
+      var ss = doc.createElement("link");
+      var ref;
+      if (before) {
+        ref = before;
+      } else {
+        var refs = (doc.body || doc.getElementsByTagName("head")[0]).childNodes;
+        ref = refs[refs.length - 1];
+      }
+      var sheets = doc.styleSheets;
+      if (attributes) {
+        for (var attributeName in attributes) {
+          if (attributes.hasOwnProperty(attributeName)) {
+            ss.setAttribute(attributeName, attributes[attributeName]);
+          }
+        }
+      }
+      ss.rel = "stylesheet";
+      ss.href = href;
+      ss.media = "only x";
+      function ready(cb) {
+        if (doc.body) {
+          return cb();
+        }
+        setTimeout(function () {
+          ready(cb);
+        });
+      }
+      ready(function () {
+        ref.parentNode.insertBefore(ss, before ? ref : ref.nextSibling);
+      });
+      var onloadcssdefined = function (cb) {
+        var resolvedHref = ss.href;
+        var i = sheets.length;
+        while (i--) {
+          if (sheets[i].href === resolvedHref) {
+            return cb();
+          }
+        }
+        setTimeout(function () {
+          onloadcssdefined(cb);
+        });
+      };
+      function loadCB() {
+        if (ss.addEventListener) {
+          ss.removeEventListener("load", loadCB);
+        }
+        ss.media = media || "all";
+      }
+      if (ss.addEventListener) {
+        ss.addEventListener("load", loadCB);
+      }
+      ss.onloadcssdefined = onloadcssdefined;
+      onloadcssdefined(loadCB);
+      return ss;
+    },
+
+    // 从 butterfly 和 volantis 获得灵感
+    loadScript: (src, opt) => new Promise((resolve, reject) => {
+      var script = document.createElement('script');
+      script.src = src;
+      if (opt) {
+        for (let key of Object.keys(opt)) {
+          script[key] = opt[key]
+        }
+      } else {
+        // 默认异步，如果需要同步，第二个参数传入 {} 即可
+        script.async = true
+      }
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    }),
+
+    // https://github.com/jerryc127/hexo-theme-butterfly
+    jQuery: (fn) => {
+      if (typeof jQuery === 'undefined') {
+        stellar.loadScript(stellar.plugins.jQuery).then(fn)
+      } else {
+        fn()
+      }
+    }
+  };
+  stellar.github = 'https://github.com/xaoxuu/hexo-theme-stellar/tree/1.4.1';
+  stellar.config = {
+    date_suffix: {
+      just: '刚刚',
+      min: '分钟前',
+      hour: '小时前',
+      day: '天前',
+      month: '个月前',
+    },
+  };
+
+  // required plugins (only load if needs)
+  stellar.plugins = {
+    jQuery: 'https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js',
+    sitesjs: '/js/plugins/sites.js',
+    friendsjs: '/js/plugins/friends.js',
+  };
+
+  // optional plugins
+  if ('true' == 'true') {
+    stellar.plugins.lazyload = Object.assign({"enable":true,"js":"https://cdn.jsdelivr.net/npm/vanilla-lazyload@17.3.1/dist/lazyload.min.js","transition":"blur"});
+  }
+  if ('true' == 'true') {
+    stellar.plugins.swiper = Object.assign({"enable":true,"css":"https://unpkg.com/swiper/swiper-bundle.min.css","js":"https://unpkg.com/swiper/swiper-bundle.min.js"});
+  }
+  if ('' == 'true') {
+    stellar.plugins.scrollreveal = Object.assign({"enable":null,"js":"https://cdn.jsdelivr.net/npm/scrollreveal@4.0.9/dist/scrollreveal.min.js","distance":"8px","duration":500,"interval":100,"scale":1});
+  }
+  if ('true' == 'true') {
+    stellar.plugins.preload = Object.assign({"enable":true,"service":"flying_pages","instant_page":"https://cdn.jsdelivr.net/gh/volantis-x/cdn-volantis@4.1.2/js/instant_page.js","flying_pages":"https://cdn.jsdelivr.net/gh/gijo-varghese/flying-pages@2.1.2/flying-pages.min.js"});
+  }
+</script>
+
+<!-- required -->
+
+  
+<script src="/js/main.js" async></script>
+
+
+
+<!-- optional -->
+
+  <script>
+  function loadBeaudar() {
+    const els = document.querySelectorAll("#comments #beaudar");
+    if (els.length === 0) return;
+    els.forEach((el, i) => {
+      try {
+        el.innerHTML = '';
+      } catch (error) {
+        console.log(error);
+      }
+      var script = document.createElement('script');
+      script.src = 'https://beaudar.lipk.org/client.js';
+      script.async = true;
+      for (let key of Object.keys(el.attributes)) {
+        let attr = el.attributes[key];
+        if (['class', 'id'].includes(attr.name) === false) {
+          script.setAttribute(attr.name, attr.value);
+        }
+      }
+      el.appendChild(script);
+    });
+  }
+  window.addEventListener('DOMContentLoaded', (event) => {
+      loadBeaudar();
+  });
+</script>
+
+
+
+
+<!-- inject -->
+
+
+  </div>
+</body>
+</html>

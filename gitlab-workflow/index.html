@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang='zh-CN'>
+
+<head>
+  <meta name="generator" content="Hexo 5.4.0">
+  <meta charset="utf-8">
+  
+
+  <meta http-equiv='x-dns-prefetch-control' content='on' />
+  <link rel='dns-prefetch' href='https://cdn.jsdelivr.net'>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+  <meta name="renderer" content="webkit">
+  <meta name="force-rendering" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="HandheldFriendly" content="True" >
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" content="#f8f8f8">
+  <title>任务面板，里程碑，CodeReview，发布测试，代码关联，整个项目的生命周期都在GitLab中完成 - 无敌小包子</title>
+
+  
+    <meta name="description" content="本篇文章介绍了如何使用GitLab进行高效的远程开发协作。    开发流程介绍总体流程分为Issue指定，开发，版本发布三个步骤。 OKR制定创建一个新的OKR的时候，首先小组组长罗列出这个OKR中的主要目标，然后发起电话会议邀请组内成员一起讨论分析OKR的具体任务是那些 制定Milestones根据OKR讨论出来的任务创建Milestones，用来关联OKR中讨论出来的任务，这样可以在Mile">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用GitLab高效管理开发">
+<meta property="og:url" content="https://shibd.github.io/gitlab-workflow/">
+<meta property="og:site_name" content="无敌小包子">
+<meta property="og:description" content="本篇文章介绍了如何使用GitLab进行高效的远程开发协作。    开发流程介绍总体流程分为Issue指定，开发，版本发布三个步骤。 OKR制定创建一个新的OKR的时候，首先小组组长罗列出这个OKR中的主要目标，然后发起电话会议邀请组内成员一起讨论分析OKR的具体任务是那些 制定Milestones根据OKR讨论出来的任务创建Milestones，用来关联OKR中讨论出来的任务，这样可以在Mile">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://shibd.github.io/image/gitlab-workflow/010-%E6%80%BB%E4%BD%93%E6%B5%81%E7%A8%8B%E5%9B%BE.png">
+<meta property="og:image" content="https://shibd.github.io/image/gitlab-workflow/001-okr.png">
+<meta property="og:image" content="https://shibd.github.io/image/gitlab-workflow/002-Milestones.png">
+<meta property="og:image" content="https://shibd.github.io/image/gitlab-workflow/003-issue.png">
+<meta property="og:image" content="https://shibd.github.io/image/gitlab-workflow/011-issue%E5%BC%80%E5%8F%91%E5%91%A8%E6%9C%9F.png">
+<meta property="og:image" content="https://shibd.github.io/image/gitlab-workflow/004-grableVer.png">
+<meta property="og:image" content="https://shibd.github.io/image/gitlab-workflow/012-tags.png">
+<meta property="og:image" content="https://shibd.github.io/image/gitlab-workflow/013-rancher.png">
+<meta property="og:image" content="https://shibd.github.io/image/gitlab-workflow/005-gitflow.png">
+<meta property="og:image" content="https://shibd.github.io/image/gitlab-workflow/006.png">
+<meta property="og:image" content="https://shibd.github.io/image/gitlab-workflow/007.png">
+<meta property="og:image" content="https://shibd.github.io/image/gitlab-workflow/008.png">
+<meta property="og:image" content="https://shibd.github.io/image/gitlab-workflow/009.png">
+<meta property="article:published_time" content="2020-05-17T00:00:00.000Z">
+<meta property="article:modified_time" content="2020-05-17T00:00:00.000Z">
+<meta property="article:author" content="baozi">
+<meta property="article:tag" content="GitLab">
+<meta property="article:tag" content="DevOps">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://shibd.github.io/image/gitlab-workflow/010-%E6%80%BB%E4%BD%93%E6%B5%81%E7%A8%8B%E5%9B%BE.png">
+  
+  
+
+  <!-- feed -->
+  
+
+  
+    
+<link rel="stylesheet" href="/css/main.css">
+
+  
+
+  
+    <link rel="shortcut icon" href="/image/base/apple-touch-icon.png">
+  
+
+  
+</head>
+
+<body>
+  
+
+
+  <div class='l_body' id='start'>
+    <aside class='l_left' layout='post'>
+    
+
+
+<header class="header">
+
+<div class="logo-wrap"><a class="avatar" href="/about/"><div class="bg" style="opacity:0;background-image:url(https://cdn.jsdelivr.net/gh/cdn-x/placeholder@1.0.2/avatar/round/rainbow64@3x.webp);"></div><img no-lazy class="avatar" src="/image/base/apple-touch-icon.png" onerror="javascript:this.classList.add('error');this.src='https://cdn.jsdelivr.net/gh/cdn-x/placeholder@1.0.1/image/2659360.svg';"></a><a class="title" href="/%E6%97%A0%E6%95%8C%E5%B0%8F%E5%8C%85%E5%AD%90"><div class="main">无敌小包子</div></a></div>
+<nav class="menu dis-select"><a class="nav-item active" href="/">文章</a><a class="nav-item" href="/wiki/">项目</a><a class="nav-item" href="/about/">关于</a></nav></header>
+
+<div class="widgets">
+
+<div class="widget-wrap single" id="toc"><div class="widget-header cap dis-select"><span class="name">本文目录</span></div><div class="widget-body fs14"><div class="doc-tree active"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BC%80%E5%8F%91%E6%B5%81%E7%A8%8B%E4%BB%8B%E7%BB%8D"><span class="toc-text">开发流程介绍</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#OKR%E5%88%B6%E5%AE%9A"><span class="toc-text">OKR制定</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%B6%E5%AE%9AMilestones"><span class="toc-text">制定Milestones</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Issue%E6%95%B4%E7%90%86"><span class="toc-text">Issue整理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%BB%E5%8A%A1%E5%BC%80%E5%8F%91"><span class="toc-text">任务开发</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9B%86%E6%88%90%E6%B5%8B%E8%AF%95"><span class="toc-text">集成测试</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%89%88%E6%9C%AC%E5%8F%91%E5%B8%83"><span class="toc-text">版本发布</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9B%B4%E6%96%B0%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83"><span class="toc-text">更新生产环境</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#GitLab%E5%8A%9F%E8%83%BD%E4%BB%8B%E7%BB%8D"><span class="toc-text">GitLab功能介绍</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%87%E7%AD%BE%E4%BB%8B%E7%BB%8D"><span class="toc-text">标签介绍</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9D%A2%E6%9D%BF%E9%85%8D%E7%BD%AE"><span class="toc-text">面板配置</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%87%E7%AD%BE%E5%8A%9F%E8%83%BD%E4%BB%8B%E7%BB%8D"><span class="toc-text">标签功能介绍</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%87%E7%AD%BE%E9%85%8D%E7%BD%AE"><span class="toc-text">标签配置</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E5%8A%9F%E8%83%BD%E4%BB%8B%E7%BB%8D"><span class="toc-text">其他功能介绍</span></a></li></ol></li></ol></div></div></div>
+
+
+</div>
+<footer class="footer dis-select"><div class="social-wrap"><a class="social" title="GitHub" href="https://github.com/shibd/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/github.svg"/></a><a class="social" title="Spotify" href="https://open.spotify.com/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/music.svg"/></a><a class="social" title="Unsplash" href="https://unsplash.com/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/music.svg"/></a><a class="social" title="Comments" href="/about/#comments" rel="noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/message.svg"/></a></div></footer>
+
+    </aside>
+    <div class='l_main'>
+      
+
+      
+
+
+<div class="bread-nav fs12"><div id="breadcrumb"><a class="cap breadcrumb" href="/">主页</a><span class="sep"></span><a class="cap breadcrumb" href="/">文章</a><span class="sep"></span><a class="cap breadcrumb-link" href="/categories/devops/">DevOps</a></div><div id="post-meta">发布于&nbsp;<time datetime="2020-05-17T00:00:00.000Z">2020年5月17日</time></div></div>
+
+<article class='content md post'>
+<h1 class="article-title"><span>使用GitLab高效管理开发</span></h1>
+<blockquote>
+<p>本篇文章介绍了如何使用GitLab进行高效的远程开发协作。</p>
+</blockquote>
+<!--truncate-->
+
+<h2 id="开发流程介绍"><a href="#开发流程介绍" class="headerlink" title="开发流程介绍"></a>开发流程介绍</h2><p>总体流程分为Issue指定，开发，版本发布三个步骤。<br><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/gitlab-workflow/010-%E6%80%BB%E4%BD%93%E6%B5%81%E7%A8%8B%E5%9B%BE.png" alt="总体流程图"></p>
+<h3 id="OKR制定"><a href="#OKR制定" class="headerlink" title="OKR制定"></a>OKR制定</h3><p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/gitlab-workflow/001-okr.png" alt="image"><br>创建一个新的OKR的时候，首先小组组长罗列出这个OKR中的主要目标，然后发起电话会议邀请组内成员一起讨论分析OKR的具体任务是那些</p>
+<h3 id="制定Milestones"><a href="#制定Milestones" class="headerlink" title="制定Milestones"></a>制定Milestones</h3><p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/gitlab-workflow/002-Milestones.png" alt="image"><br>根据OKR讨论出来的任务创建Milestones，用来关联OKR中讨论出来的任务，这样可以在Milestones面板很直观的看到当前任务的进度以及开发状态</p>
+<h3 id="Issue整理"><a href="#Issue整理" class="headerlink" title="Issue整理"></a>Issue整理</h3><p>创建Milestones之后就可以根据Milestones来拆分出具体任务，拆分出来的Issue需要遵循一下规定:</p>
+<ol>
+<li>每个Issue都需要关联到对应的Milestones</li>
+<li>Issue描述应尽可能详细，例如：完成Issue的目标，Issue的交付物都有哪些等等</li>
+<li>可以根据Issue的描述来评估Issue工作量，以便之后对每个人工作的量化统计</li>
+<li>刚创建的Issue应放在<strong>待准入</strong>面板中让其他同事一起来评估是否合理等，如果评估没有发现问题即可打上自己的RA标签（尽可能在Issue下的评论区进行讨论，这样同组的同事都可以看到，发现问题也可以及时补充）</li>
+</ol>
+<h3 id="任务开发"><a href="#任务开发" class="headerlink" title="任务开发"></a>任务开发</h3><p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/gitlab-workflow/003-issue.png" alt="image"></p>
+<ol>
+<li>在待认领面板中认领Issue</li>
+<li>并且将Issue拖入<strong>Doing</strong>面板</li>
+<li>认领的Issue需要在<strong>Assignee</strong>中设置为自己</li>
+<li>设置<strong>Due date</strong>(Issue接完成截至日期)</li>
+<li>进行开发测试或文档整理，如果任务是开发任务需要将<strong>Merge Requests</strong>关联到相关<code>Issue</code>，如果是文档任务需要将文档地址关联到<code>Issue</code>（在开发中遇到问题可以将问题提现到Issue中，或者拉上组内成员一起讨论）</li>
+<li>任务完成后将<code>Issue</code>拖入<strong>待review</strong>面板</li>
+<li>其他同事应主动去<code>review</code>其他人的任务，如果有建议或者问题及时在Issue上进行评论</li>
+<li>review没有发现问题的话可以打上RR标签</li>
+<li>当<strong>待review</strong>中的<code>Issue</code>的<code>RR</code>标签超过两个，可以将<code>Issue</code>拖入待关闭并且合并<code>Issue</code>中的代码</li>
+<li>合并代码后环境测试没有问题机可彻底关闭<code>Issue</code></li>
+</ol>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/gitlab-workflow/011-issue%E5%BC%80%E5%8F%91%E5%91%A8%E6%9C%9F.png" alt="image"></p>
+<h3 id="集成测试"><a href="#集成测试" class="headerlink" title="集成测试"></a>集成测试</h3><p>OKR中的所有任务都开发完成，需要罗列出OKR关联所有变动的测试案例进行封板测试。封板测试案例：</p>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/gitlab-workflow/004-grableVer.png" alt="image"></p>
+<h3 id="版本发布"><a href="#版本发布" class="headerlink" title="版本发布"></a>版本发布</h3><p>全部测试完成即可升级相应项目版本，并制作相应tag（建议在tag中表明本次升级的所有变动点）</p>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/gitlab-workflow/012-tags.png" alt="tags"></p>
+<h3 id="更新生产环境"><a href="#更新生产环境" class="headerlink" title="更新生产环境"></a>更新生产环境</h3><p>phoenix集成了helm，当合并到master分支后即可在rancher应用商店页面直接升级</p>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/gitlab-workflow/013-rancher.png" alt="rancher升级"></p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>Phoenix组通过以上开发流程完成了高效、可视、线上化的从任务创建到版本升级整个任务的流程分配于协作。</p>
+<ul>
+<li>以上所有步骤全部遵循<a target="_blank" rel="noopener" href="https://portal.iquantex.com/confluence/pages/viewpage.action?pageId=35816806">Gitflow</a>开发规定</li>
+</ul>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/gitlab-workflow/005-gitflow.png" alt="image"></p>
+<h2 id="GitLab功能介绍"><a href="#GitLab功能介绍" class="headerlink" title="GitLab功能介绍"></a>GitLab功能介绍</h2><h3 id="标签介绍"><a href="#标签介绍" class="headerlink" title="标签介绍"></a>标签介绍</h3><ul>
+<li><strong>公告:</strong> 可以存放一些公共信息 <strong>例如：</strong>OKR内容、环境信息、会议记录等</li>
+<li><strong>讨论:</strong> 存放一些项目发展方向的讨论记录，项目整体设计等</li>
+<li><strong>待准入:</strong> 用来存放新创建待其他同事检查的<code>Issue</code></li>
+<li><strong>待认领:</strong> 存放检查通过的<code>Issue</code></li>
+<li><strong>Doing:</strong> 存放正在开发的<code>Issue</code></li>
+<li><strong>待review:</strong> 存放可以进行<code>review</code>的<code>Issue</code></li>
+<li><strong>待关闭:</strong> 存放已经合并的，但是需要在环境上进行测试的Issue</li>
+</ul>
+<h3 id="面板配置"><a href="#面板配置" class="headerlink" title="面板配置"></a>面板配置</h3><ol>
+<li>在<code>Issues-&gt;Labels</code>增加面板标签：<strong>待准入</strong>、<strong>待认领</strong>、<strong>Doing</strong>、<strong>待review</strong>、<strong>待关闭</strong>等标签</li>
+</ol>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/gitlab-workflow/006.png" alt="1585898814667"></p>
+<ol start="2">
+<li>在<code>Issues-&gt;Board</code>中点击<strong>Add List</strong>，增加面板</li>
+</ol>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/gitlab-workflow/007.png" alt="1585899041726"></p>
+<h3 id="标签功能介绍"><a href="#标签功能介绍" class="headerlink" title="标签功能介绍"></a>标签功能介绍</h3><ul>
+<li><p><strong>RA标签:<strong>待准入检查没问题后打入</strong>RA:张三</strong>的标签（只能使用自己的标签）</p>
+</li>
+<li><p><strong>RD标签:<strong>如果</strong>Issue</strong>由多个同事完成，需要在<strong>Issue</strong>中打入一起来完成<strong>Issue</strong>的同事，同事在Issue中说明时间分配</p>
+</li>
+<li><p><strong>RR标签:</strong> <strong>待review</strong>检查没问题后打入</p>
+</li>
+<li><p><strong>时间标签:</strong> 主要用来衡量一个Issue的工作量，这里可以是完成该Issue需要的时间。</p>
+</li>
+</ul>
+<h3 id="标签配置"><a href="#标签配置" class="headerlink" title="标签配置"></a>标签配置</h3><ol>
+<li>进入<strong>Issues -&gt; Labels</strong>进行配置</li>
+</ol>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/gitlab-workflow/008.png" alt="1585899469004"></p>
+<h3 id="其他功能介绍"><a href="#其他功能介绍" class="headerlink" title="其他功能介绍"></a>其他功能介绍</h3><ul>
+<li><strong>Due date</strong> 截止时间，指认领Issue后Issue最后的完成时间</li>
+<li><strong>Milestones</strong> GitLab中的里程碑是一种跟踪问题并合并为在特定时期内实现更广泛目标而创建的请求的方法。</li>
+</ul>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/gitlab-workflow/009.png" alt="1585899715828"></p>
+<ul>
+<li><code>Merge Requests</code> 如何关联Issue</li>
+</ul>
+<ol>
+<li>同一个group同一个project：在<code>Merge Requests</code>的<code>Description</code>中填入<code>#+ [Issue编号]</code>的方式关联</li>
+<li>同一个group不同project：在<code>Merge Requests</code>的<code>Description</code>中填入<code>[project名称]+#+[Issue编号]</code>的方式关联</li>
+<li>不同group：在<code>Merge Requests</code>的<code>Description</code>中填入<code>[group名称]+/+[project名称]+#+[Issue编号]</code>关联</li>
+</ol>
+<p><em>还有一种简单的方法关联Issue，在<code>Merge Requests</code>的<code>Description</code>中填入对应Issue的url即可</em></p>
+<h1 id="链接"><a href="#链接" class="headerlink" title="链接"></a>链接</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://docs.gitlab.com/ee/user/project/labels.html">GitLab Labels官方文档</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.gitlab.com/ee/user/project/milestones/">GitLab Milestones官方文档</a></li>
+<li><a target="_blank" rel="noopener" href="https://gitlab.iquantex.com/help/ci/README.md">GitLab ci/cd官方文档</a></li>
+</ul>
+
+
+<div class="article-footer reveal fs14"><section id="license"><div class="header"><span>许可协议</span></div><div class="body"><p>本文采用 <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">署名-非商业性使用-相同方式共享 4.0 国际</a> 许可协议，转载请注明出处。</p>
+</div></section></div>
+
+</article>
+
+<div class="related-wrap reveal" id="read-next"><section class="header cap theme"><span>接下来阅读</span></section><section class="body fs14"><a id="next" href="/queue-share/">无处不在的队列<span class="note">较早</span></a><div class="line"></div><a id="prev" href="/pulsar-effectively-once/">Pulsar特性解析[Effectively once]<span class="note">较新</span></a><div class="line"></div><a id="more" href="/archives">检索全部文章</a></section></div>
+
+
+
+
+
+
+  <div class='related-wrap md reveal' id="comments">
+    <div class='cmt-title cap theme'>
+      快来参与讨论吧
+    </div>
+    <div class='cmt-body beaudar'>
+      
+
+<svg class="loading" style="vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2709"><path d="M832 512c0-176-144-320-320-320V128c211.2 0 384 172.8 384 384h-64zM192 512c0 176 144 320 320 320v64C300.8 896 128 723.2 128 512h64z" p-id="2710"></path></svg>
+
+<div id="beaudar" repo="shibd/shibd.github.io" issue-term="pathname" theme="preferred-color-scheme" input-position="top" comment-order="desc" loading="false" branch="master"></div>
+
+    </div>
+  </div>
+
+
+
+      
+<footer class="page-footer reveal fs12"><hr><div class="sitemap"><div class="sitemap-group"><span class="fs14">Blog</span><a href="/">Recent Update</a><a href="/blog/categories/">Categories</a><a href="/blog/tags/">Tags</a><a href="/blog/archives/">Archives</a></div><div class="sitemap-group"><span class="fs14">Wiki</span><a href="/wiki/tags/%E6%8A%80%E6%9C%AF%E5%8A%A0%E6%B2%B9%E7%AB%99/">技术加油站</a><a href="/wiki/">...</a></div><div class="sitemap-group"><span class="fs14">Social</span><a href="/friends/">Friends</a><a href="/about/#comments">Comments</a><a target="_blank" rel="noopener" href="https://open.spotify.com/">Spotify</a></div><div class="sitemap-group"><span class="fs14">More</span><a href="/about/">About</a><a href="/wiki/resume">Resume</a><a target="_blank" rel="noopener" href="https://github.com/shibd">GitHub</a></div></div><div class="text"><object data="https://img.shields.io/static/v1?label=强力驱动&message=Hexo&style=social&logo=Hexo&logoColor=0E83CD&link=https://hexo.io/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=网站部署&message=GitHub&style=social&logo=GitHub&logoColor=181717&link=https://github.com/shibd"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=网站部署&message=Vercel&style=social&logo=Vercel&logoColor=000000&link=https://vercel.com"></object> &nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=图片分发&message=jsDelivr&style=social&logo=jsDelivr&logoColor=E84D3D&link=https://www.jsdelivr.com/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=域名解析&message=Aliyun&style=social&logo=Alibaba Cloud&logoColor=FF6A00&link=https://www.aliyun.com/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=许可协议&message=CC BY-NC-SA 4.0&style=social&logo=Creative Commons&logoColor=EF9421&link=https://creativecommons.org/licenses/by-nc-sa/4.0/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=博客作者&message=Baozi&style=social&logo=Blogger&logoColor=FF5722&link=https://shibd.github.io/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=原创主题&message=Stellar&style=social&logo=Badoo&logoColor=783BF9&link=https://github.com/xaoxuu/hexo-theme-stellar/tree/1.4.0"></object>&nbsp;&nbsp;</div></footer>
+
+      <div class='float-panel mobile-only blur' style='display:none'>
+  <button type='button' class='sidebar-toggle mobile' onclick='sidebar.toggle()'>
+    <svg class="icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="15301"><path d="M566.407 808.3c26.9-0.1 49.3-20.8 51.6-47.6-1.9-27.7-23.9-49.7-51.6-51.6h-412.6c-28.2-1.4-52.6 19.5-55.5 47.6 2.3 26.8 24.6 47.5 51.6 47.6h416.5v4z m309.3-249.9c26.9-0.1 49.3-20.8 51.6-47.6-2.2-26.8-24.6-47.5-51.6-47.6h-721.9c-27.7-2.8-52.5 17.4-55.3 45.1-0.1 0.8-0.1 1.7-0.2 2.5 0.9 27.2 23.6 48.5 50.7 47.6H875.707z m-103.1-245.9c26.9-0.1 49.3-20.8 51.6-47.6-0.4-28.3-23.2-51.1-51.5-51.6h-618.9c-29.5-1.1-54.3 21.9-55.5 51.4v0.2c1.4 27.8 25.2 49.2 53 47.8 0.8 0 1.7-0.1 2.5-0.2h618.8z" p-id="15302"></path><path d="M566.407 808.3c26.9-0.1 49.3-20.8 51.6-47.6-1.9-27.7-23.9-49.7-51.6-51.6h-412.6c-28.2-1.4-52.6 19.5-55.5 47.6 1.9 27.7 23.9 49.7 51.6 51.6h416.5z m309.3-249.9c26.9-0.1 49.3-20.8 51.6-47.6-2.2-26.8-24.6-47.5-51.6-47.6h-721.9c-27.7-2.8-52.5 17.4-55.3 45.1-0.1 0.8-0.1 1.7-0.2 2.5 0.9 27.2 23.6 48.5 50.7 47.6H875.707z m-103.1-245.9c26.9-0.1 49.3-20.8 51.6-47.6-0.4-28.3-23.2-51.1-51.5-51.6h-618.9c-29.5-1.1-54.3 21.9-55.5 51.4v0.2c1.4 27.8 25.2 49.2 53 47.8 0.8 0 1.7-0.1 2.5-0.2h618.8z" p-id="15303"></path></svg>
+  </button>
+</div>
+
+    </div>
+  </div>
+  <div class='scripts'>
+    <script type="text/javascript">
+  stellar = {
+    // 懒加载 css https://github.com/filamentgroup/loadCSS
+    loadCSS: (href, before, media, attributes) => {
+      var doc = window.document;
+      var ss = doc.createElement("link");
+      var ref;
+      if (before) {
+        ref = before;
+      } else {
+        var refs = (doc.body || doc.getElementsByTagName("head")[0]).childNodes;
+        ref = refs[refs.length - 1];
+      }
+      var sheets = doc.styleSheets;
+      if (attributes) {
+        for (var attributeName in attributes) {
+          if (attributes.hasOwnProperty(attributeName)) {
+            ss.setAttribute(attributeName, attributes[attributeName]);
+          }
+        }
+      }
+      ss.rel = "stylesheet";
+      ss.href = href;
+      ss.media = "only x";
+      function ready(cb) {
+        if (doc.body) {
+          return cb();
+        }
+        setTimeout(function () {
+          ready(cb);
+        });
+      }
+      ready(function () {
+        ref.parentNode.insertBefore(ss, before ? ref : ref.nextSibling);
+      });
+      var onloadcssdefined = function (cb) {
+        var resolvedHref = ss.href;
+        var i = sheets.length;
+        while (i--) {
+          if (sheets[i].href === resolvedHref) {
+            return cb();
+          }
+        }
+        setTimeout(function () {
+          onloadcssdefined(cb);
+        });
+      };
+      function loadCB() {
+        if (ss.addEventListener) {
+          ss.removeEventListener("load", loadCB);
+        }
+        ss.media = media || "all";
+      }
+      if (ss.addEventListener) {
+        ss.addEventListener("load", loadCB);
+      }
+      ss.onloadcssdefined = onloadcssdefined;
+      onloadcssdefined(loadCB);
+      return ss;
+    },
+
+    // 从 butterfly 和 volantis 获得灵感
+    loadScript: (src, opt) => new Promise((resolve, reject) => {
+      var script = document.createElement('script');
+      script.src = src;
+      if (opt) {
+        for (let key of Object.keys(opt)) {
+          script[key] = opt[key]
+        }
+      } else {
+        // 默认异步，如果需要同步，第二个参数传入 {} 即可
+        script.async = true
+      }
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    }),
+
+    // https://github.com/jerryc127/hexo-theme-butterfly
+    jQuery: (fn) => {
+      if (typeof jQuery === 'undefined') {
+        stellar.loadScript(stellar.plugins.jQuery).then(fn)
+      } else {
+        fn()
+      }
+    }
+  };
+  stellar.github = 'https://github.com/xaoxuu/hexo-theme-stellar/tree/1.4.1';
+  stellar.config = {
+    date_suffix: {
+      just: '刚刚',
+      min: '分钟前',
+      hour: '小时前',
+      day: '天前',
+      month: '个月前',
+    },
+  };
+
+  // required plugins (only load if needs)
+  stellar.plugins = {
+    jQuery: 'https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js',
+    sitesjs: '/js/plugins/sites.js',
+    friendsjs: '/js/plugins/friends.js',
+  };
+
+  // optional plugins
+  if ('true' == 'true') {
+    stellar.plugins.lazyload = Object.assign({"enable":true,"js":"https://cdn.jsdelivr.net/npm/vanilla-lazyload@17.3.1/dist/lazyload.min.js","transition":"blur"});
+  }
+  if ('true' == 'true') {
+    stellar.plugins.swiper = Object.assign({"enable":true,"css":"https://unpkg.com/swiper/swiper-bundle.min.css","js":"https://unpkg.com/swiper/swiper-bundle.min.js"});
+  }
+  if ('' == 'true') {
+    stellar.plugins.scrollreveal = Object.assign({"enable":null,"js":"https://cdn.jsdelivr.net/npm/scrollreveal@4.0.9/dist/scrollreveal.min.js","distance":"8px","duration":500,"interval":100,"scale":1});
+  }
+  if ('true' == 'true') {
+    stellar.plugins.preload = Object.assign({"enable":true,"service":"flying_pages","instant_page":"https://cdn.jsdelivr.net/gh/volantis-x/cdn-volantis@4.1.2/js/instant_page.js","flying_pages":"https://cdn.jsdelivr.net/gh/gijo-varghese/flying-pages@2.1.2/flying-pages.min.js"});
+  }
+</script>
+
+<!-- required -->
+
+  
+<script src="/js/main.js" async></script>
+
+
+
+<!-- optional -->
+
+  <script>
+  function loadBeaudar() {
+    const els = document.querySelectorAll("#comments #beaudar");
+    if (els.length === 0) return;
+    els.forEach((el, i) => {
+      try {
+        el.innerHTML = '';
+      } catch (error) {
+        console.log(error);
+      }
+      var script = document.createElement('script');
+      script.src = 'https://beaudar.lipk.org/client.js';
+      script.async = true;
+      for (let key of Object.keys(el.attributes)) {
+        let attr = el.attributes[key];
+        if (['class', 'id'].includes(attr.name) === false) {
+          script.setAttribute(attr.name, attr.value);
+        }
+      }
+      el.appendChild(script);
+    });
+  }
+  window.addEventListener('DOMContentLoaded', (event) => {
+      loadBeaudar();
+  });
+</script>
+
+
+
+
+<!-- inject -->
+
+
+  </div>
+</body>
+</html>

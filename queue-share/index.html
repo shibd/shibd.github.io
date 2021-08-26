@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang='zh-CN'>
+
+<head>
+  <meta name="generator" content="Hexo 5.4.0">
+  <meta charset="utf-8">
+  
+
+  <meta http-equiv='x-dns-prefetch-control' content='on' />
+  <link rel='dns-prefetch' href='https://cdn.jsdelivr.net'>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+  <meta name="renderer" content="webkit">
+  <meta name="force-rendering" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="HandheldFriendly" content="True" >
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" content="#f8f8f8">
+  <title>队列数据结构在语言，各种中间件架构中的应用 - 无敌小包子</title>
+
+  
+    <meta name="description" content="队列定义先进者先出  内存队列顺序队列：使用数组实现的队列链式队列：使用链表实现的队列循环队列：避免顺序队列下队列满的数据搬移，动态计算tail和head指针阻塞队列：入队满阻塞，出队空阻塞并发队列：支持并发入队和并发出队双端队列：对头队尾都支持入队和出队操作。既是生产者又是消费者有界队列：队列大小固定无界队列：队列大小无固定优先队列：实际不是队列 应用场景生产者-消费者（阻塞并发队列）单消费者">
+<meta property="og:type" content="article">
+<meta property="og:title" content="无处不在的队列">
+<meta property="og:url" content="https://shibd.github.io/queue-share/">
+<meta property="og:site_name" content="无敌小包子">
+<meta property="og:description" content="队列定义先进者先出  内存队列顺序队列：使用数组实现的队列链式队列：使用链表实现的队列循环队列：避免顺序队列下队列满的数据搬移，动态计算tail和head指针阻塞队列：入队满阻塞，出队空阻塞并发队列：支持并发入队和并发出队双端队列：对头队尾都支持入队和出队操作。既是生产者又是消费者有界队列：队列大小固定无界队列：队列大小无固定优先队列：实际不是队列 应用场景生产者-消费者（阻塞并发队列）单消费者">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://shibd.github.io/image/queue-share/image1.jpg">
+<meta property="og:image" content="https://shibd.github.io/image/queue-share/image2.jpg">
+<meta property="og:image" content="https://shibd.github.io/image/queue-share/image4.jpg">
+<meta property="og:image" content="https://shibd.github.io/image/queue-share/image5.jpg">
+<meta property="og:image" content="https://shibd.github.io/image/queue-share/image6.jpg">
+<meta property="og:image" content="https://shibd.github.io/image/queue-share/image9.jpg">
+<meta property="og:image" content="https://shibd.github.io/image/queue-share/image10.jpg">
+<meta property="og:image" content="https://shibd.github.io/image/queue-share/image11.jpg">
+<meta property="article:published_time" content="2019-09-09T00:00:00.000Z">
+<meta property="article:modified_time" content="2019-09-09T00:00:00.000Z">
+<meta property="article:author" content="baozi">
+<meta property="article:tag" content="数据结构">
+<meta property="article:tag" content="随笔">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://shibd.github.io/image/queue-share/image1.jpg">
+  
+  
+
+  <!-- feed -->
+  
+
+  
+    
+<link rel="stylesheet" href="/css/main.css">
+
+  
+
+  
+    <link rel="shortcut icon" href="/image/base/apple-touch-icon.png">
+  
+
+  
+</head>
+
+<body>
+  
+
+
+  <div class='l_body' id='start'>
+    <aside class='l_left' layout='post'>
+    
+
+
+<header class="header">
+
+<div class="logo-wrap"><a class="avatar" href="/about/"><div class="bg" style="opacity:0;background-image:url(https://cdn.jsdelivr.net/gh/cdn-x/placeholder@1.0.2/avatar/round/rainbow64@3x.webp);"></div><img no-lazy class="avatar" src="/image/base/apple-touch-icon.png" onerror="javascript:this.classList.add('error');this.src='https://cdn.jsdelivr.net/gh/cdn-x/placeholder@1.0.1/image/2659360.svg';"></a><a class="title" href="/%E6%97%A0%E6%95%8C%E5%B0%8F%E5%8C%85%E5%AD%90"><div class="main">无敌小包子</div></a></div>
+<nav class="menu dis-select"><a class="nav-item active" href="/">文章</a><a class="nav-item" href="/wiki/">项目</a><a class="nav-item" href="/about/">关于</a></nav></header>
+
+<div class="widgets">
+
+<div class="widget-wrap single" id="toc"><div class="widget-header cap dis-select"><span class="name">本文目录</span></div><div class="widget-body fs14"><div class="doc-tree active"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="toc-text">应用场景</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E8%80%85-%E6%B6%88%E8%B4%B9%E8%80%85%EF%BC%88%E9%98%BB%E5%A1%9E%E5%B9%B6%E5%8F%91%E9%98%9F%E5%88%97%EF%BC%89"><span class="toc-text">生产者-消费者（阻塞并发队列）</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%8D%95%E6%B6%88%E8%B4%B9%E8%80%85"><span class="toc-text">单消费者</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%A4%9A%E6%B6%88%E8%B4%B9%E8%80%85%EF%BC%88EventBus%EF%BC%89"><span class="toc-text">多消费者（EventBus）</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BA%BF%E7%A8%8B%E6%B1%A0%EF%BC%88%E9%98%BB%E5%A1%9E%E5%B9%B6%E5%8F%91%E9%98%9F%E5%88%97%EF%BC%89"><span class="toc-text">线程池（阻塞并发队列）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86%EF%BC%88%E9%98%BB%E5%A1%9E%E5%B9%B6%E5%8F%91%E9%98%9F%E5%88%97%EF%BC%89"><span class="toc-text">批量处理（阻塞并发队列）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AE%A1%E7%A8%8B%E6%A8%A1%E5%9E%8B%EF%BC%88%E9%98%BB%E5%A1%9E%E5%B9%B6%E5%8F%91%E9%98%9F%E5%88%97-%EF%BC%89"><span class="toc-text">管程模型（阻塞并发队列 ）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B7%A5%E4%BD%9C%E5%AF%86%E5%8F%96%EF%BC%88%E5%8F%8C%E7%AB%AF%E9%98%9F%E5%88%97%EF%BC%89"><span class="toc-text">工作密取（双端队列）</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Disruptor%E9%98%9F%E5%88%97"><span class="toc-text">Disruptor队列</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF-1"><span class="toc-text">应用场景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8A%9F%E8%83%BD%E7%82%B9"><span class="toc-text">功能点</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Kafka"><span class="toc-text">Kafka</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E5%9B%BE"><span class="toc-text">系统架构图</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Partition%E5%A4%9A%E5%89%AF%E6%9C%AC"><span class="toc-text">Partition多副本</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%96%87%E4%BB%B6%E5%AD%98%E5%82%A8"><span class="toc-text">文件存储</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%91%E9%80%81%E6%A8%A1%E5%9E%8B"><span class="toc-text">发送模型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E6%95%B0%E9%85%8D%E7%BD%AE"><span class="toc-text">参数配置</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#ProducerConfig-ACKS-CONFIG"><span class="toc-text">ProducerConfig.ACKS_CONFIG</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#ProducerConfig-RETRIES-CONFIG"><span class="toc-text">ProducerConfig.RETRIES_CONFIG</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#ProducerConfig-MAX-IN-FLIGHT-REQUESTS-PER-CONNECTION"><span class="toc-text">ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%8E%A8%E8%8D%90%E9%85%8D%E7%BD%AE"><span class="toc-text">推荐配置</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%9B%B8%E5%85%B3%E9%93%BE%E6%8E%A5"><span class="toc-text">相关链接</span></a></li></ol></li></ol></div></div></div>
+
+
+</div>
+<footer class="footer dis-select"><div class="social-wrap"><a class="social" title="GitHub" href="https://github.com/shibd/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/github.svg"/></a><a class="social" title="Spotify" href="https://open.spotify.com/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/music.svg"/></a><a class="social" title="Unsplash" href="https://unsplash.com/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/music.svg"/></a><a class="social" title="Comments" href="/about/#comments" rel="noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/message.svg"/></a></div></footer>
+
+    </aside>
+    <div class='l_main'>
+      
+
+      
+
+
+<div class="bread-nav fs12"><div id="breadcrumb"><a class="cap breadcrumb" href="/">主页</a><span class="sep"></span><a class="cap breadcrumb" href="/">文章</a><span class="sep"></span><a class="cap breadcrumb-link" href="/categories/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AE%97%E6%B3%95/">数据结构算法</a></div><div id="post-meta">发布于&nbsp;<time datetime="2019-09-09T00:00:00.000Z">2019年9月9日</time></div></div>
+
+<article class='content md post'>
+<h1 class="article-title"><span>无处不在的队列</span></h1>
+<h1 id="队列定义"><a href="#队列定义" class="headerlink" title="队列定义"></a>队列定义</h1><p>先进者先出</p>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/queue-share/image1.jpg" alt="image1.jpg"></p>
+<h1 id="内存队列"><a href="#内存队列" class="headerlink" title="内存队列"></a>内存队列</h1><p>顺序队列：使用数组实现的队列<br /><br>链式队列：使用链表实现的队列<br /><br>循环队列：避免顺序队列下队列满的数据搬移，动态计算tail和head指针<br /><br>阻塞队列：入队满阻塞，出队空阻塞<br /><br>并发队列：支持并发入队和并发出队<br /><br>双端队列：对头队尾都支持入队和出队操作。既是生产者又是消费者<br />有界队列：队列大小固定<br /><br>无界队列：队列大小无固定<br /><br>优先队列：实际不是队列<br /><a href=""></a></p>
+<h2 id="应用场景"><a href="#应用场景" class="headerlink" title="应用场景"></a>应用场景</h2><h3 id="生产者-消费者（阻塞并发队列）"><a href="#生产者-消费者（阻塞并发队列）" class="headerlink" title="生产者-消费者（阻塞并发队列）"></a>生产者-消费者（阻塞并发队列）</h3><h4 id="单消费者"><a href="#单消费者" class="headerlink" title="单消费者"></a>单消费者</h4><ol>
+<li>解耦</li>
+<li>异步</li>
+<li>流水线模型：地铁调度模型</li>
+</ol>
+<p>会议室系统的邮件发送</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Auther</span>: baozi</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Date</span>: 2019/6/4 11:01</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Description</span>:</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">MailSend</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 邮件缓存队列</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> BlockingQueue&lt;Object&gt; queue = <span class="keyword">new</span> ArrayBlockingQueue&lt;&gt;(<span class="number">100</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 线程运行标志</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> AtomicBoolean run = <span class="keyword">new</span> AtomicBoolean(<span class="keyword">false</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 发送邮件线程</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Thread sendThread;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 开始发送线程</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">boolean</span> <span class="title">start</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (!run.compareAndSet(<span class="keyword">false</span>, <span class="keyword">true</span>)) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        sendThread = <span class="keyword">new</span> Thread(() -&gt; &#123;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">while</span> (run.get()) &#123;</span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    Object take = queue.take();</span><br><span class="line">                    <span class="comment">// todo do send mail</span></span><br><span class="line">                    <span class="comment">// MailUtils.sendMail(take); 线程安全? </span></span><br><span class="line">                &#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">                    Thread.currentThread().interrupt();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">        &#125;);</span><br><span class="line">        sendThread.start();</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 通知发送线程</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">boolean</span> <span class="title">stop</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (!run.compareAndSet(<span class="keyword">true</span>, <span class="keyword">false</span>)) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        sendThread.interrupt();</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 发送邮件</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> object</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">put</span><span class="params">(Object object)</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</span><br><span class="line">        queue.put(object);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 开始邮件发送者线程</span></span><br><span class="line">        MailSend.start();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// doing</span></span><br><span class="line">        MailSend.put(<span class="keyword">new</span> Object());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="多消费者（EventBus）"><a href="#多消费者（EventBus）" class="headerlink" title="多消费者（EventBus）"></a><em>多消费者（EventBus）</em></h4><p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/queue-share/image2.jpg" alt="image2.jpg"></p>
+<h3 id="线程池（阻塞并发队列）"><a href="#线程池（阻塞并发队列）" class="headerlink" title="线程池（阻塞并发队列）"></a>线程池（阻塞并发队列）</h3><p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/queue-share/image4.jpg" alt="image4.jpg"></p>
+<p><strong>线程池创建</strong></p>
+<p>JDK其中阻塞队列：<a target="_blank" rel="noopener" href="https://www.cnblogs.com/konck/p/9473677.html">https://www.cnblogs.com/konck/p/9473677.html</a></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">ThreadPoolExecutor</span><span class="params">(<span class="keyword">int</span> corePoolSize, // 核心线程数</span></span></span><br><span class="line"><span class="params"><span class="function">                              <span class="keyword">int</span> maximumPoolSize, // 线程池允许最大的线程数</span></span></span><br><span class="line"><span class="params"><span class="function">                              <span class="keyword">long</span> keepAliveTime, // 空闲线程超时时间</span></span></span><br><span class="line"><span class="params"><span class="function">                              TimeUnit unit, // 枚举时间单位</span></span></span><br><span class="line"><span class="params"><span class="function">                              BlockingQueue&lt;Runnable&gt; workQueue)</span> <span class="comment">//阻塞队列</span></span></span><br></pre></td></tr></table></figure>
+
+<p><strong>队列在线程池中的应用</strong>：队列存放任务，利用队列实现线程复用，利用阻塞线程的超时来实现非核心线程的退出，以及核心线程和非核心线程的转换。下面为线程池中工作线程源码。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">Worker</span> <span class="keyword">implements</span> <span class="title">Runnable</span> </span>&#123;</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">final</span> Thread thread;</span><br><span class="line">    </span><br><span class="line">    Runnable firstTask;</span><br><span class="line">    </span><br><span class="line">    Worker(Runnable firstTask) &#123;</span><br><span class="line">        <span class="keyword">this</span>.firstTask = firstTask;</span><br><span class="line">        <span class="keyword">this</span>.thread = getThreadFactory().newThread(<span class="keyword">this</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        runWorker(<span class="keyword">this</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">final</span> <span class="keyword">void</span> <span class="title">runWorker</span><span class="params">(Worker w)</span> </span>&#123;</span><br><span class="line">        Runnable task = w.firstTask;</span><br><span class="line">        w.firstTask = <span class="keyword">null</span>;</span><br><span class="line">        <span class="keyword">while</span> (task != <span class="keyword">null</span> || (task = getTask()) != <span class="keyword">null</span>)&#123;</span><br><span class="line">        task.run();</span><br><span class="line">    &#125;</span><br><span class="line">        </span><br><span class="line">    <span class="function"><span class="keyword">private</span> Runnable <span class="title">getTask</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">boolean</span> timedOut = <span class="keyword">false</span>; <span class="comment">// Did the last poll() time out?</span></span><br><span class="line">        <span class="keyword">for</span> (;;) &#123;</span><br><span class="line">            <span class="keyword">int</span> c = ctl.get();</span><br><span class="line">            <span class="keyword">int</span> rs = runStateOf(c);</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                Runnable r = timed ?</span><br><span class="line">                    workQueue.poll(keepAliveTime, TimeUnit.NANOSECONDS) :</span><br><span class="line">                    workQueue.take();</span><br><span class="line">                <span class="keyword">if</span> (r != <span class="keyword">null</span>)</span><br><span class="line">                    <span class="keyword">return</span> r;</span><br><span class="line">                timedOut = <span class="keyword">true</span>;</span><br><span class="line">            &#125; <span class="keyword">catch</span> (InterruptedException retry) &#123;</span><br><span class="line">                timedOut = <span class="keyword">false</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="批量处理（阻塞并发队列）"><a href="#批量处理（阻塞并发队列）" class="headerlink" title="批量处理（阻塞并发队列）"></a>批量处理（阻塞并发队列）</h3><p><strong>先决</strong>：数据一致性不高，可靠性不高业务</p>
+<p>例如数据库异步批量插入，日志批量写入ElasticSearch，Kafka批量发送模型，监控框架批量上报等</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MessageCache</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Logger LOG = LoggerFactory.getLogger(Sender.class);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">protected</span> BlockingQueue&lt;ProducerBatch&gt; queue = <span class="keyword">new</span> ArrayBlockingQueue&lt;&gt;(<span class="number">10000</span>);</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">addMessage</span><span class="params">(Message message)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            queue.put(meesage);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">            Thread.currentThread().interrupt();</span><br><span class="line">            LOG.error(e.getMessage(), e);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 获取缓存策略,能拿就拿,拿不到null就返回,最多拿的数量不大于maxSendRecords</span></span><br><span class="line"><span class="comment">     * 这里存在一种场景:如果消费者线程大于生产者线程速率,那么就永远不会拿到批量的数据.</span></span><br><span class="line"><span class="comment">     * 在实际场景中rocketmq的同步发送是比较慢的,所以不会出现上述情况</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> List&lt;Message&gt; <span class="title">getMessages</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        List&lt;Message&gt; messages = <span class="keyword">new</span> ArrayList&lt;&gt;(maxSendRecords);</span><br><span class="line">        ProducerBatch producerBatch = queue.peek();</span><br><span class="line">        <span class="comment">// 上来就没消息,就休息1ms</span></span><br><span class="line">        <span class="keyword">if</span> (producerBatch == <span class="keyword">null</span>) &#123;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                Thread.sleep(<span class="number">1</span>);</span><br><span class="line">            &#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">                Thread.currentThread().interrupt();</span><br><span class="line">                LOG.error(e.getMessage(), e);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">return</span> messages;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">long</span> size = <span class="number">0</span>;</span><br><span class="line">        <span class="comment">// 发送条件判断: 拿不到数据立即发 | 判断消息个数 | 判断总消息大小</span></span><br><span class="line">        <span class="keyword">while</span> (producerBatch != <span class="keyword">null</span> &amp;&amp; messages.size() &lt; maxSendRecords ) &#123;</span><br><span class="line">            ProducerBatch batch = queue.poll();</span><br><span class="line">            messages.add(batch.getMessage());</span><br><span class="line">            size = producerBatch.getSize() + size;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span>(size &gt; LIMIT_SIZE) &#123;</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            producerBatch = queue.peek();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> messages;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="管程模型（阻塞并发队列-）"><a href="#管程模型（阻塞并发队列-）" class="headerlink" title="管程模型（阻塞并发队列 ）"></a>管程模型（阻塞并发队列 ）</h3><p>synchronized，wait-notify实现, AQS，ReentryLock&amp;Condition等</p>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/queue-share/image5.jpg" alt="image5.jpg"></p>
+<h3 id="工作密取（双端队列）"><a href="#工作密取（双端队列）" class="headerlink" title="工作密取（双端队列）"></a>工作密取（双端队列）</h3><p>    在生产者-消费者设计中，所有消费者共享一个工作队列，而在工作密取中，每个消费者都有各自的双端队列。如果一个消费者完成了自己双端队列中的全部工作，那么他就可以从其他消费者的双端队列末尾秘密的获取工作。具有更好的可伸缩性，这是因为工作者线程不会在单个共享的任务队列上发生竞争。</p>
+<p>    在大多数时候，他们都只是访问自己的双端队列，从而极大的减少了竞争。当工作者线程需要访问另一个队列时，它会从队列的尾部而不是头部获取工作，因此进一步降低了队列上的竞争。</p>
+<h2 id="Disruptor队列"><a href="#Disruptor队列" class="headerlink" title="Disruptor队列"></a>Disruptor队列</h2><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/zhouzhenyong/article/details/81303011">https://blog.csdn.net/zhouzhenyong/article/details/81303011</a></p>
+<p>    Disruptor是一款高性能的有界阻塞并发内存队列，期初是英国外汇交易中心LMAX架构开发用来做交易的，单线程能支持600W QPS。目前很多知名框架都使用了Disruptor，比例Storm，Log4J2，HBase等。高性能的主要几个原因为：</p>
+<ol>
+<li>内存分配合理，使用RingBuffer数据结构，数组元素在初始化时一次性全部创建，提升缓存命中率；对象循环利用，避免频繁GC。（空间局部性原则）</li>
+</ol>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/queue-share/image6.jpg" alt="image6.jpg"></p>
+<ol start="2">
+<li>避免伪共享，提升缓存命中率；</li>
+<li>采用无锁算法（写时拷贝），避免频繁加锁、解锁的性能损耗；</li>
+<li>支持批量消费，消费者可以无锁方式消费多个消息</li>
+</ol>
+<h1 id="消息队列"><a href="#消息队列" class="headerlink" title="消息队列"></a>消息队列</h1><p>业界产品：ActiveMQ，RabbitMQ，RocketMQ，Kafka，MetaMQ</p>
+<h2 id="应用场景-1"><a href="#应用场景-1" class="headerlink" title="应用场景"></a>应用场景</h2><p>解耦，最终一致性，广播，削峰填谷，异步通知。</p>
+<h2 id="功能点"><a href="#功能点" class="headerlink" title="功能点"></a>功能点</h2><p>高可用，可靠投递，重复消息，顺序消息，push还是pull</p>
+<h2 id="Kafka"><a href="#Kafka" class="headerlink" title="Kafka"></a>Kafka</h2><p>kafka是一个高可用，数据高可靠，高吞吐，低延迟的中心化消息队列<br /></p>
+<h3 id="系统架构图"><a href="#系统架构图" class="headerlink" title="系统架构图"></a>系统架构图</h3><p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/queue-share/image9.jpg" alt="image9.jpg"></p>
+<h3 id="Partition多副本"><a href="#Partition多副本" class="headerlink" title="Partition多副本"></a>Partition多副本</h3><p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/queue-share/image10.jpg" alt="image10.jpg"></p>
+<h3 id="文件存储"><a href="#文件存储" class="headerlink" title="文件存储"></a>文件存储</h3><p>    Kafka中消息是以topic进行分类的，生产者通过topic向Kafka broker发送消息，消费者通过topic读取数据。然而topic在物理层面又能以partition为分组，一个topic可以分成若干个partition，那么topic以及partition又是怎么存储的呢？partition还可以细分为segment，一个partition物理上由多个segment组成，那么这些segment又是什么呢？<br /><a href=""></a></p>
+<h3 id="发送模型"><a href="#发送模型" class="headerlink" title="发送模型"></a>发送模型</h3><p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/queue-share/image11.jpg" alt="image11.jpg"></p>
+<ol>
+<li>和kafka交互获取到broker的元数据信息（往哪个broker发），获取不到就抛出异常</li>
+<li>判断消息包大小是否符合，默认为1MB，如果超过该大小则抛异常，修改配置需要和broker一起配合修改，具体看文章<a target="_blank" rel="noopener" href="https://blog.csdn.net/hanjibing1990/article/details/51673540">https://blog.csdn.net/hanjibing1990/article/details/51673540</a></li>
+<li>往客户端内部的双端队列send消息，队列默认大小为32M，当大小不够时则会阻塞，阻塞时间可配，当阻塞时间过后则会抛出异常给客户端。</li>
+</ol>
+<p>    同时有一个Sender线程会实时批量拉取双端队列内消息往kafka集群发送。如果发送成功，则进入回调函数，返回RecordMetadate对象。如果发送失败，则进行重试，重试次数可配，当重试次数用完，则进入客户端定义的回调函数由客户端处理。</p>
+<h3 id="参数配置"><a href="#参数配置" class="headerlink" title="参数配置"></a>参数配置</h3><h4 id="ProducerConfig-ACKS-CONFIG"><a href="#ProducerConfig-ACKS-CONFIG" class="headerlink" title="ProducerConfig.ACKS_CONFIG"></a>ProducerConfig.ACKS_CONFIG</h4><p>指定必须有多少个<strong>分区副本</strong>收到消息，生产者才会认为<strong>消息写入是成功</strong>的。程序中设置为-1</p>
+<ol>
+<li>ack=0：生产者不会等待任何来自服务器的响应。<br />如果当中出现问题，导致服务器没有收到消息，那么生产者无从得知，会造成消息丢失<br />由于生产者不需要等待服务器的响应所以可以以网络能够支持的最大速度发送消息，从而达到很高的吞吐量</li>
+<li>acks=1（默认值）：只要集群的Leader节点收到消息，生产者就会收到一个来自服务器的成功响应<br />如果消息无法到达Leader节点（例如Leader节点崩溃，新的Leader节点还没有被选举出来）生产者就会收到一个错误响应，为了避免数据丢失，生产者会重发消息<br /><em>如果一个没有收到消息的节点成为新Leader，消息还是会丢失</em><br />此时的吞吐量主要取决于使用的是同步发送还是异步发送，吞吐量还受到发送中消息数量的限制，例如生产者在收到服务器响应之前可以发送多少个消息</li>
+<li>acks=-1：只有当所有参与复制的节点全部都收到消息时，生产者才会收到一个来自服务器的成功响应<br />这种模式是最安全的，可以保证不止一个服务器收到消息，就算有服务器发生崩溃，整个集群依然可以运行<br />延时比acks=1更高，因为要等待不止一个服务器节点接收消息</li>
+</ol>
+<h4 id="ProducerConfig-RETRIES-CONFIG"><a href="#ProducerConfig-RETRIES-CONFIG" class="headerlink" title="ProducerConfig.RETRIES_CONFIG"></a><strong>ProducerConfig.RETRIES_CONFIG</strong></h4><p>生产者从服务器收到临时性错误（如分区找不到Leader）时，retries参数决定了生产者可以重发消息的次数，程序中设置为 Integer.MAX</p>
+<ol>
+<li>默认情况下，生产者会在每次重试之间等待100ms，控制参数为<code>retry.backoff.ms</code></li>
+<li>可以先测试一下恢复一个崩溃节点需要多少时间，假设为T，让生产者总的重试时间比T长，否着生产者会_过早地放弃重试_有些错误不是临时性错误，没办法通过重试来解决（例如消息太大），这个可以通过配置来改变producer，consumer以及broker可接受的的消息大小。（默认可接受的单个消息大小为1MB）一般情况下，因为生产者会自动进行重试。当出现不可重试的错误或者重试次数超过上限的情况时，现在的处理逻辑是打印错误信息，继续重试。client.id 任意字符串，服务器会用它来识别消息的来源，还可以用在日志和配额指标里。暂时没有配置 关于配置的相关介绍：<a target="_blank" rel="noopener" href="http://www.aboutyun.com/thread-24147-1-1.html">http://www.aboutyun.com/thread-24147-1-1.html</a></li>
+</ol>
+<h4 id="ProducerConfig-MAX-IN-FLIGHT-REQUESTS-PER-CONNECTION"><a href="#ProducerConfig-MAX-IN-FLIGHT-REQUESTS-PER-CONNECTION" class="headerlink" title="ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION"></a>ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION</h4><p>Producer的另一个问题是消息的乱序问题。假设客户端代码依次执行下面的语句将两条消息发到相同的分区</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">producer.send(record1);</span><br><span class="line">producer.send(record2);</span><br></pre></td></tr></table></figure>
+<p>如果此时由于某些原因(比如瞬时的网络抖动)导致record1没有成功发送，同时Kafka又配置了重试机制和max.in.flight.requests.per.connection大于1(默认值是5，本来就是大于1的)，那么重试record1成功后，record1在分区中就在record2之后，从而造成消息的乱序。</p>
+<h4 id="推荐配置"><a href="#推荐配置" class="headerlink" title="推荐配置"></a>推荐配置</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 只有当所有参与复制的节点**全部都收到消息时，生产者才会收到一个来自服务器的成功响应</span></span><br><span class="line">props.put(ProducerConfig.ACKS_CONFIG, <span class="string">&quot;-1&quot;</span>);</span><br><span class="line"><span class="comment">// 失败重试的次数(每次间隔100ms重试次数用完需要10多年)</span></span><br><span class="line">props.put(ProducerConfig.RETRIES_CONFIG, Integer.MAX_VALUE);</span><br><span class="line"><span class="comment">//限制客户端在单个连接上能够发送的未响应请求的个数。设置此值是1表示kafka broker在响应请求之前client不能再向同一个broker发送请求</span></span><br><span class="line">props.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, <span class="number">1</span>);</span><br><span class="line"><span class="comment">// 缓冲区已满或元数据不可用时的阻塞时间</span></span><br><span class="line">props.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, <span class="number">1000</span>);</span><br></pre></td></tr></table></figure>
+
+<h3 id="相关链接"><a href="#相关链接" class="headerlink" title="相关链接"></a>相关链接</h3><ul>
+<li>Java线程池： <a target="_blank" rel="noopener" href="https://silencedut.github.io/2016/06/25/%E4%BB%8E%E4%BD%BF%E7%94%A8%E5%88%B0%E5%8E%9F%E7%90%86%E5%AD%A6%E4%B9%A0Java%E7%BA%BF%E7%A8%8B%E6%B1%A0/">https://silencedut.github.io/2016/06/25/从使用到原理学习Java线程池/</a></li>
+<li>并发队列：<a target="_blank" rel="noopener" href="https://www.cnblogs.com/konck/p/9473677.html">https://www.cnblogs.com/konck/p/9473677.html</a></li>
+<li>消息队列详解：<a target="_blank" rel="noopener" href="https://tech.meituan.com/2016/07/01/mq-design.html">https://tech.meituan.com/2016/07/01/mq-design.html</a></li>
+<li>kafka详解：<a target="_blank" rel="noopener" href="https://hiddenpps.blog.csdn.net/article/details/71091774">https://hiddenpps.blog.csdn.net/article/details/71091774</a></li>
+</ul>
+
+
+<div class="article-footer reveal fs14"><section id="license"><div class="header"><span>许可协议</span></div><div class="body"><p>本文采用 <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">署名-非商业性使用-相同方式共享 4.0 国际</a> 许可协议，转载请注明出处。</p>
+</div></section></div>
+
+</article>
+
+<div class="related-wrap reveal" id="read-next"><section class="header cap theme"><span>接下来阅读</span></section><section class="body fs14"><a id="next" href="/message-center-4/">Websocket推送中心(四)-推送中心的集群架构<span class="note">较早</span></a><div class="line"></div><a id="prev" href="/gitlab-workflow/">使用GitLab高效管理开发<span class="note">较新</span></a><div class="line"></div><a id="more" href="/archives">检索全部文章</a></section></div>
+
+
+
+
+
+
+  <div class='related-wrap md reveal' id="comments">
+    <div class='cmt-title cap theme'>
+      快来参与讨论吧
+    </div>
+    <div class='cmt-body beaudar'>
+      
+
+<svg class="loading" style="vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2709"><path d="M832 512c0-176-144-320-320-320V128c211.2 0 384 172.8 384 384h-64zM192 512c0 176 144 320 320 320v64C300.8 896 128 723.2 128 512h64z" p-id="2710"></path></svg>
+
+<div id="beaudar" repo="shibd/shibd.github.io" issue-term="pathname" theme="preferred-color-scheme" input-position="top" comment-order="desc" loading="false" branch="master"></div>
+
+    </div>
+  </div>
+
+
+
+      
+<footer class="page-footer reveal fs12"><hr><div class="sitemap"><div class="sitemap-group"><span class="fs14">Blog</span><a href="/">Recent Update</a><a href="/blog/categories/">Categories</a><a href="/blog/tags/">Tags</a><a href="/blog/archives/">Archives</a></div><div class="sitemap-group"><span class="fs14">Wiki</span><a href="/wiki/tags/%E6%8A%80%E6%9C%AF%E5%8A%A0%E6%B2%B9%E7%AB%99/">技术加油站</a><a href="/wiki/">...</a></div><div class="sitemap-group"><span class="fs14">Social</span><a href="/friends/">Friends</a><a href="/about/#comments">Comments</a><a target="_blank" rel="noopener" href="https://open.spotify.com/">Spotify</a></div><div class="sitemap-group"><span class="fs14">More</span><a href="/about/">About</a><a href="/wiki/resume">Resume</a><a target="_blank" rel="noopener" href="https://github.com/shibd">GitHub</a></div></div><div class="text"><object data="https://img.shields.io/static/v1?label=强力驱动&message=Hexo&style=social&logo=Hexo&logoColor=0E83CD&link=https://hexo.io/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=网站部署&message=GitHub&style=social&logo=GitHub&logoColor=181717&link=https://github.com/shibd"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=网站部署&message=Vercel&style=social&logo=Vercel&logoColor=000000&link=https://vercel.com"></object> &nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=图片分发&message=jsDelivr&style=social&logo=jsDelivr&logoColor=E84D3D&link=https://www.jsdelivr.com/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=域名解析&message=Aliyun&style=social&logo=Alibaba Cloud&logoColor=FF6A00&link=https://www.aliyun.com/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=许可协议&message=CC BY-NC-SA 4.0&style=social&logo=Creative Commons&logoColor=EF9421&link=https://creativecommons.org/licenses/by-nc-sa/4.0/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=博客作者&message=Baozi&style=social&logo=Blogger&logoColor=FF5722&link=https://shibd.github.io/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=原创主题&message=Stellar&style=social&logo=Badoo&logoColor=783BF9&link=https://github.com/xaoxuu/hexo-theme-stellar/tree/1.4.0"></object>&nbsp;&nbsp;</div></footer>
+
+      <div class='float-panel mobile-only blur' style='display:none'>
+  <button type='button' class='sidebar-toggle mobile' onclick='sidebar.toggle()'>
+    <svg class="icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="15301"><path d="M566.407 808.3c26.9-0.1 49.3-20.8 51.6-47.6-1.9-27.7-23.9-49.7-51.6-51.6h-412.6c-28.2-1.4-52.6 19.5-55.5 47.6 2.3 26.8 24.6 47.5 51.6 47.6h416.5v4z m309.3-249.9c26.9-0.1 49.3-20.8 51.6-47.6-2.2-26.8-24.6-47.5-51.6-47.6h-721.9c-27.7-2.8-52.5 17.4-55.3 45.1-0.1 0.8-0.1 1.7-0.2 2.5 0.9 27.2 23.6 48.5 50.7 47.6H875.707z m-103.1-245.9c26.9-0.1 49.3-20.8 51.6-47.6-0.4-28.3-23.2-51.1-51.5-51.6h-618.9c-29.5-1.1-54.3 21.9-55.5 51.4v0.2c1.4 27.8 25.2 49.2 53 47.8 0.8 0 1.7-0.1 2.5-0.2h618.8z" p-id="15302"></path><path d="M566.407 808.3c26.9-0.1 49.3-20.8 51.6-47.6-1.9-27.7-23.9-49.7-51.6-51.6h-412.6c-28.2-1.4-52.6 19.5-55.5 47.6 1.9 27.7 23.9 49.7 51.6 51.6h416.5z m309.3-249.9c26.9-0.1 49.3-20.8 51.6-47.6-2.2-26.8-24.6-47.5-51.6-47.6h-721.9c-27.7-2.8-52.5 17.4-55.3 45.1-0.1 0.8-0.1 1.7-0.2 2.5 0.9 27.2 23.6 48.5 50.7 47.6H875.707z m-103.1-245.9c26.9-0.1 49.3-20.8 51.6-47.6-0.4-28.3-23.2-51.1-51.5-51.6h-618.9c-29.5-1.1-54.3 21.9-55.5 51.4v0.2c1.4 27.8 25.2 49.2 53 47.8 0.8 0 1.7-0.1 2.5-0.2h618.8z" p-id="15303"></path></svg>
+  </button>
+</div>
+
+    </div>
+  </div>
+  <div class='scripts'>
+    <script type="text/javascript">
+  stellar = {
+    // 懒加载 css https://github.com/filamentgroup/loadCSS
+    loadCSS: (href, before, media, attributes) => {
+      var doc = window.document;
+      var ss = doc.createElement("link");
+      var ref;
+      if (before) {
+        ref = before;
+      } else {
+        var refs = (doc.body || doc.getElementsByTagName("head")[0]).childNodes;
+        ref = refs[refs.length - 1];
+      }
+      var sheets = doc.styleSheets;
+      if (attributes) {
+        for (var attributeName in attributes) {
+          if (attributes.hasOwnProperty(attributeName)) {
+            ss.setAttribute(attributeName, attributes[attributeName]);
+          }
+        }
+      }
+      ss.rel = "stylesheet";
+      ss.href = href;
+      ss.media = "only x";
+      function ready(cb) {
+        if (doc.body) {
+          return cb();
+        }
+        setTimeout(function () {
+          ready(cb);
+        });
+      }
+      ready(function () {
+        ref.parentNode.insertBefore(ss, before ? ref : ref.nextSibling);
+      });
+      var onloadcssdefined = function (cb) {
+        var resolvedHref = ss.href;
+        var i = sheets.length;
+        while (i--) {
+          if (sheets[i].href === resolvedHref) {
+            return cb();
+          }
+        }
+        setTimeout(function () {
+          onloadcssdefined(cb);
+        });
+      };
+      function loadCB() {
+        if (ss.addEventListener) {
+          ss.removeEventListener("load", loadCB);
+        }
+        ss.media = media || "all";
+      }
+      if (ss.addEventListener) {
+        ss.addEventListener("load", loadCB);
+      }
+      ss.onloadcssdefined = onloadcssdefined;
+      onloadcssdefined(loadCB);
+      return ss;
+    },
+
+    // 从 butterfly 和 volantis 获得灵感
+    loadScript: (src, opt) => new Promise((resolve, reject) => {
+      var script = document.createElement('script');
+      script.src = src;
+      if (opt) {
+        for (let key of Object.keys(opt)) {
+          script[key] = opt[key]
+        }
+      } else {
+        // 默认异步，如果需要同步，第二个参数传入 {} 即可
+        script.async = true
+      }
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    }),
+
+    // https://github.com/jerryc127/hexo-theme-butterfly
+    jQuery: (fn) => {
+      if (typeof jQuery === 'undefined') {
+        stellar.loadScript(stellar.plugins.jQuery).then(fn)
+      } else {
+        fn()
+      }
+    }
+  };
+  stellar.github = 'https://github.com/xaoxuu/hexo-theme-stellar/tree/1.4.1';
+  stellar.config = {
+    date_suffix: {
+      just: '刚刚',
+      min: '分钟前',
+      hour: '小时前',
+      day: '天前',
+      month: '个月前',
+    },
+  };
+
+  // required plugins (only load if needs)
+  stellar.plugins = {
+    jQuery: 'https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js',
+    sitesjs: '/js/plugins/sites.js',
+    friendsjs: '/js/plugins/friends.js',
+  };
+
+  // optional plugins
+  if ('true' == 'true') {
+    stellar.plugins.lazyload = Object.assign({"enable":true,"js":"https://cdn.jsdelivr.net/npm/vanilla-lazyload@17.3.1/dist/lazyload.min.js","transition":"blur"});
+  }
+  if ('true' == 'true') {
+    stellar.plugins.swiper = Object.assign({"enable":true,"css":"https://unpkg.com/swiper/swiper-bundle.min.css","js":"https://unpkg.com/swiper/swiper-bundle.min.js"});
+  }
+  if ('' == 'true') {
+    stellar.plugins.scrollreveal = Object.assign({"enable":null,"js":"https://cdn.jsdelivr.net/npm/scrollreveal@4.0.9/dist/scrollreveal.min.js","distance":"8px","duration":500,"interval":100,"scale":1});
+  }
+  if ('true' == 'true') {
+    stellar.plugins.preload = Object.assign({"enable":true,"service":"flying_pages","instant_page":"https://cdn.jsdelivr.net/gh/volantis-x/cdn-volantis@4.1.2/js/instant_page.js","flying_pages":"https://cdn.jsdelivr.net/gh/gijo-varghese/flying-pages@2.1.2/flying-pages.min.js"});
+  }
+</script>
+
+<!-- required -->
+
+  
+<script src="/js/main.js" async></script>
+
+
+
+<!-- optional -->
+
+  <script>
+  function loadBeaudar() {
+    const els = document.querySelectorAll("#comments #beaudar");
+    if (els.length === 0) return;
+    els.forEach((el, i) => {
+      try {
+        el.innerHTML = '';
+      } catch (error) {
+        console.log(error);
+      }
+      var script = document.createElement('script');
+      script.src = 'https://beaudar.lipk.org/client.js';
+      script.async = true;
+      for (let key of Object.keys(el.attributes)) {
+        let attr = el.attributes[key];
+        if (['class', 'id'].includes(attr.name) === false) {
+          script.setAttribute(attr.name, attr.value);
+        }
+      }
+      el.appendChild(script);
+    });
+  }
+  window.addEventListener('DOMContentLoaded', (event) => {
+      loadBeaudar();
+  });
+</script>
+
+
+
+
+<!-- inject -->
+
+
+  </div>
+</body>
+</html>

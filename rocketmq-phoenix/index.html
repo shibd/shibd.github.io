@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang='zh-CN'>
+
+<head>
+  <meta name="generator" content="Hexo 5.4.0">
+  <meta charset="utf-8">
+  
+
+  <meta http-equiv='x-dns-prefetch-control' content='on' />
+  <link rel='dns-prefetch' href='https://cdn.jsdelivr.net'>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+  <meta name="renderer" content="webkit">
+  <meta name="force-rendering" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="HandheldFriendly" content="True" >
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" content="#f8f8f8">
+  <title>Phoenix内存计算框架使用RocketMQ作为EventStore - 无敌小包子</title>
+
+  
+    <meta name="description" content="感谢RocketMQ官微采稿  摘要：Phoenix是宽拓科技架构团队研发的内存计算框架，借鉴了LMAX的架构思路，采用CQRS和EventSouring理念打造。本文简单介绍Phoenix，以及RocketMQ在Phoenix中的应用与实践。注：该Phoenix不是Apache开源的那个Phoenix。  行业背景在金融资管投资交易领域，业务场景复杂，如在交易处理场景中，存在事前的风控头寸控制需">
+<meta property="og:type" content="article">
+<meta property="og:title" content="RocketMQ在Phoenix框架中的应用与实践">
+<meta property="og:url" content="https://shibd.github.io/rocketmq-phoenix/">
+<meta property="og:site_name" content="无敌小包子">
+<meta property="og:description" content="感谢RocketMQ官微采稿  摘要：Phoenix是宽拓科技架构团队研发的内存计算框架，借鉴了LMAX的架构思路，采用CQRS和EventSouring理念打造。本文简单介绍Phoenix，以及RocketMQ在Phoenix中的应用与实践。注：该Phoenix不是Apache开源的那个Phoenix。  行业背景在金融资管投资交易领域，业务场景复杂，如在交易处理场景中，存在事前的风控头寸控制需">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://shibd.github.io/image/rocketmq-phoenix/phoenix.jpg">
+<meta property="og:image" content="https://shibd.github.io/image/rocketmq-phoenix/phoenix-handle.jpg">
+<meta property="article:published_time" content="2019-04-14T00:00:00.000Z">
+<meta property="article:modified_time" content="2019-04-14T00:00:00.000Z">
+<meta property="article:author" content="baozi">
+<meta property="article:tag" content="Phoenix">
+<meta property="article:tag" content="RocketMQ">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://shibd.github.io/image/rocketmq-phoenix/phoenix.jpg">
+  
+  
+
+  <!-- feed -->
+  
+
+  
+    
+<link rel="stylesheet" href="/css/main.css">
+
+  
+
+  
+    <link rel="shortcut icon" href="/image/base/apple-touch-icon.png">
+  
+
+  
+</head>
+
+<body>
+  
+
+
+  <div class='l_body' id='start'>
+    <aside class='l_left' layout='post'>
+    
+
+
+<header class="header">
+
+<div class="logo-wrap"><a class="avatar" href="/about/"><div class="bg" style="opacity:0;background-image:url(https://cdn.jsdelivr.net/gh/cdn-x/placeholder@1.0.2/avatar/round/rainbow64@3x.webp);"></div><img no-lazy class="avatar" src="/image/base/apple-touch-icon.png" onerror="javascript:this.classList.add('error');this.src='https://cdn.jsdelivr.net/gh/cdn-x/placeholder@1.0.1/image/2659360.svg';"></a><a class="title" href="/%E6%97%A0%E6%95%8C%E5%B0%8F%E5%8C%85%E5%AD%90"><div class="main">无敌小包子</div></a></div>
+<nav class="menu dis-select"><a class="nav-item active" href="/">文章</a><a class="nav-item" href="/wiki/">项目</a><a class="nav-item" href="/about/">关于</a></nav></header>
+
+<div class="widgets">
+
+<div class="widget-wrap single" id="toc"><div class="widget-header cap dis-select"><span class="name">本文目录</span></div><div class="widget-body fs14"><div class="doc-tree active"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%A1%8C%E4%B8%9A%E8%83%8C%E6%99%AF"><span class="toc-text">行业背景</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Phoniex%E4%BB%8B%E7%BB%8D"><span class="toc-text">Phoniex介绍</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%9E%B6%E6%9E%84%E5%9B%BE"><span class="toc-text">架构图</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%A6%82%E5%BF%B5%E6%9C%AF%E8%AF%AD"><span class="toc-text">概念术语</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#RocketMQ%E5%92%8CPhoenix"><span class="toc-text">RocketMQ和Phoenix</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#RocketMQ%E5%92%8CEventSouring"><span class="toc-text">RocketMQ和EventSouring</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#RocketMQ%E4%B8%8B%E7%9A%84Phoenix%E6%A1%86%E6%9E%B6%E6%80%A7%E8%83%BD"><span class="toc-text">RocketMQ下的Phoenix框架性能</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#RocketMQ%E7%9A%84%E6%B6%88%E6%81%AF%E5%AD%98%E5%82%A8%E9%97%AE%E9%A2%98"><span class="toc-text">RocketMQ的消息存储问题</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#RocketMQ%E7%9A%84%E9%83%A8%E7%BD%B2%E6%96%B9%E6%A1%88"><span class="toc-text">RocketMQ的部署方案</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Phoenix%E5%90%8E%E7%BB%AD%E7%9A%84RoadMap"><span class="toc-text">Phoenix后续的RoadMap</span></a></li></ol></div></div></div>
+
+
+</div>
+<footer class="footer dis-select"><div class="social-wrap"><a class="social" title="GitHub" href="https://github.com/shibd/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/github.svg"/></a><a class="social" title="Spotify" href="https://open.spotify.com/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/music.svg"/></a><a class="social" title="Unsplash" href="https://unsplash.com/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/music.svg"/></a><a class="social" title="Comments" href="/about/#comments" rel="noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/message.svg"/></a></div></footer>
+
+    </aside>
+    <div class='l_main'>
+      
+
+      
+
+
+<div class="bread-nav fs12"><div id="breadcrumb"><a class="cap breadcrumb" href="/">主页</a><span class="sep"></span><a class="cap breadcrumb" href="/">文章</a><span class="sep"></span><a class="cap breadcrumb-link" href="/categories/phoenix/">Phoenix</a></div><div id="post-meta">发布于&nbsp;<time datetime="2019-04-14T00:00:00.000Z">2019年4月14日</time></div></div>
+
+<article class='content md post'>
+<h1 class="article-title"><span>RocketMQ在Phoenix框架中的应用与实践</span></h1>
+<p><strong>感谢<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxODM2NTQ3OQ==&mid=2247484214&idx=1&sn=d17f889cd8ddefe65fb4dae8e95c1354&chksm=97eae87ea09d6168a3a13ea4266e2c0a9cbf0c4d2d67cb16a83a822e9f6b8f8281be1c23ff8c&scene=27#wechat_redirect">RocketMQ官微</a>采稿</strong></p>
+<blockquote>
+<p>摘要：Phoenix是宽拓科技架构团队研发的内存计算框架，借鉴了LMAX的架构思路，采用CQRS和EventSouring理念打造。本文简单介绍Phoenix，以及RocketMQ在Phoenix中的应用与实践。<br>注：该Phoenix不是Apache开源的那个Phoenix。</p>
+</blockquote>
+<h3 id="行业背景"><a href="#行业背景" class="headerlink" title="行业背景"></a>行业背景</h3><p>在金融资管投资交易领域，业务场景复杂，如在交易处理场景中，存在事前的风控头寸控制需求，导致交易事件必须串行处理，无法并发，且单次交易事件处理中，存在高密度的复杂业务逻辑计算且依赖数据范围广，所以系统的性能问题非常突出。</p>
+<p>目前业内一般基于关系型数据库来处理单个交易事件，会存在复杂SQL运算逻辑和多次IO读取数据，因此很难做到低延迟。并且由于业务逻辑比较复杂，经常陷入与表模型纠缠当中。</p>
+<p>因为交易事件必须串行处理，所以基于SpringCloud/Dubbo这类分布式框架，并不能享受到横向扩容带来的计算能力提升的好处，反而在多点部署的时候需要引入全局锁来做好并发保护，增加了业务实现的复杂度。</p>
+<p>基于此我们在借鉴了英国外汇交易中心的LMAX架构基础上，结合CQRS + EventSouring理念，落地了一套基于Java的内存计算框架Phoenix。目标是要把复杂的业务逻辑拿到内存中计算，摆脱对关系型数据库的依赖，结合DDD设计思路，让业务开发人员真正面向对象编程，大大降低单个事件的处理延时，通过低延迟获取高吞吐回报。同时利用单线程模式，避免了并发场景，降低了编程复杂度。</p>
+<h3 id="Phoniex介绍"><a href="#Phoniex介绍" class="headerlink" title="Phoniex介绍"></a>Phoniex介绍</h3><p>Phoenix是对CQRS + EventSouring理念落地的JAVA开发框架，围绕Phoenix开发框架打造了一套开发运维平台。Phoenix框架具有如下特性： ln-Memory、支持分布式事务（SAGA）、微服务、单线程、支持同步/异步调用。 在开发运维平台上提供，内存查询/修改、快照管理，事件编排，调用链跟踪、实时监控、个性化业务指标监控、性能指标统计等。目前已经在生产中使用</p>
+<h4 id="架构图"><a href="#架构图" class="headerlink" title="架构图"></a>架构图</h4><p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/rocketmq-phoenix/phoenix.jpg" alt="image-phoenix"></p>
+<h4 id="概念术语"><a href="#概念术语" class="headerlink" title="概念术语"></a>概念术语</h4><p><em><strong>Command</strong></em>：由CServer定义，表示请求的入参。</p>
+<p><em><strong>Event</strong></em> ：由CServer定义，表示领域内已发生的事件。</p>
+<p><em><strong>CServer</strong></em>： 业务处理服务，采用内存保存数据状态。收到请求Command后，通过业务处理逻辑，产⽣结果Event，然后Event再驱动内存数据状态改变。当服务重启后， 利用EventSouring来恢复内存数据。</p>
+<p><em><strong>QServer</strong></em>：订阅CServer产生的领域Event，加工后得到查询端的数据模型。 如可以持久化到关系数据库供查询，又或者持久化到内存数据库供高速查询。</p>
+<p><em><strong>Saga</strong></em>：负责分布式事务协调，接收Event，产生Command， 协调各个CServer一起工作，共同完成事务。</p>
+<h3 id="RocketMQ和Phoenix"><a href="#RocketMQ和Phoenix" class="headerlink" title="RocketMQ和Phoenix"></a>RocketMQ和Phoenix</h3><p>上面简单介绍了行业背景和Phoenix，关于CQRS和EventSouring相关理念，这里不多阐述，大家可以上网搜索相关资料来理解Phoenix。回到与RocketMQ相关，在Phoenix框架里RocketMQ承担了什么角色？我们为什么选用RocketMQ，这里要从EventSouring说起。</p>
+<h4 id="RocketMQ和EventSouring"><a href="#RocketMQ和EventSouring" class="headerlink" title="RocketMQ和EventSouring"></a>RocketMQ和EventSouring</h4><p>Phoenix应用基于的内存来计算，最大的问题就是进程重启或Crash，内存数据全部丢失。而EventSourcing就是用于进程重启后恢复内存数据状态的。</p>
+<p>举例：有一个Java对象account，ID为001，当前状态：余额10元。假设是经过如下三个操作达到了该状态：</p>
+<ul>
+<li><p>Account account = new Account(001, 0);  — 初建对象</p>
+</li>
+<li><p>account.amt = account.amt + 14; — 转入14元</p>
+</li>
+<li><p>account.amt = account.amt - 4; — 转出4元</p>
+</li>
+</ul>
+<p>如果进程重启，根据EventSouring思想，我们可以重播操作1、2、3来恢复重启前的Account状态。</p>
+<p>对于Phoenix，我们做了如下思考：</p>
+<p><strong>思考1</strong>： Phoenix应用通过领域Event回溯可以重建内存状态，那领域Event该怎么存储？</p>
+<p>首先回溯的时一定要确保领域Event有序且不漏，这里我们选择了RocketMQ来存储领域Event:</p>
+<ol>
+<li>RocketMQ中同步刷盘机制，可以保证消息不丢。</li>
+<li>topic的单queue模式，可以保证消息有序存储，有序消费。</li>
+<li>RocketMQ是一个基于文件持久化的高性能MQ，支持重复消费。</li>
+<li>RocketMQ本身经历过阿里双12的考验，更适合金融场景。</li>
+</ol>
+<p><strong>思考2</strong>：对比采用数据库保存数据状态，Phoenix采用了RocketMQ来持久化领域Event，两者都存在数据持久化动作，那么两者性能对比如何？我们来分析一下一个账户的转入操作。</p>
+<p>使用数据库的处理方式：</p>
+<ol>
+<li>根据账户ID从数据库中取出账户信息，开启事务且加锁。</li>
+<li>程序进行账户的加钱操作，写会数据库，提交事务(写数据库还涉及建立索引，写binlog，redolog等)。</li>
+</ol>
+<p>使用Phoenix的处理方式：</p>
+<ol>
+<li>Phoenix应用从RocketMQ中读取Command，完成消息反序列化。</li>
+<li>路由Command到具体的聚合根对象，调用处理函数act，产生领域Event，Event驱动内存数据状态改变。</li>
+<li>将Event序列化后publish到RocketMQ。<br><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/rocketmq-phoenix/phoenix-handle.jpg" alt="image-phoenix-handle"><br>​以上3个步骤，采用disruptor，以流水线方式处理。处理过程，是采用先修改内存状态，再持久化Event到RocketMQ。之所以可以这样设计，是因为Event的发布和存储是在一个事务中完成的。</li>
+</ol>
+<p>显然，存储状态需要进行两次IO操作，并且如果是一个新增操作，建立索引等耗时都是要考虑在内的。而RocketMQ存储领域Event时，只需要把Event内容追加到commitlog文件尾（1~2ms），配合着GroupCommit技术，可以做到非常高的吞吐量，效率更高。</p>
+<h4 id="RocketMQ下的Phoenix框架性能"><a href="#RocketMQ下的Phoenix框架性能" class="headerlink" title="RocketMQ下的Phoenix框架性能"></a>RocketMQ下的Phoenix框架性能</h4><p>单个CServer，在PC机（X99平台 + Intel(R) Core(TM) i7-5820K CPU @ 3.30GHz + SSD) 下的采用echo测试结果：TPS=2w/s, latency = 1~2ms</p>
+<p>虽然这个TPS对比Dubbo这类的框架下单服务TPS并不算高， 但得益于内存计算，回到开篇提到的复杂业务逻辑计算下，单个交易事件的业务处理耗时能做到ms下，TPS可以达到 k/s 级别。 端到端延时在毫秒级。这在基于数据库的模式下是很难做到的。</p>
+<h4 id="RocketMQ的消息存储问题"><a href="#RocketMQ的消息存储问题" class="headerlink" title="RocketMQ的消息存储问题"></a>RocketMQ的消息存储问题</h4><p>根据EventSouring的描述，理想情况下我们是需要RocketMQ永不清理消息，可以通过调整broker的配置设置<code>fileReservedTime=99999999999</code>消息时间。这里RocketMQ没有提供直接关掉清理策略开关，其中一条清理策略是，如果磁盘空间达到85%以上，RocketMQ无论消息过期都会清理消息。</p>
+<p>在实际生产场景中，我们并不会要求RocketMQ永不清理消息。因为CServer应用会采用快照功能，每天都会定时把内存状态和当时Queue的Offset存储到数据库中（存储快照）。在EventSouring的时候，就不需要从Offset为0的地方开始回溯，就可以根据快照先恢复近期的数据状态，再从快照记录的Offset之后做回溯。</p>
+<p>一般情况下把<code>fileReservedTime=168</code>设置消息过期时间为7天即可。</p>
+<h4 id="RocketMQ的部署方案"><a href="#RocketMQ的部署方案" class="headerlink" title="RocketMQ的部署方案"></a>RocketMQ的部署方案</h4><p>在Phoenix中，由于消息需要做到严格的有序且不丢，所以RocketMQ的部署方案，我们只能采用1master-1slave， 同步刷磁盘机制+同步写Slave节点模式。 </p>
+<p>在1master-1slave场景下，RocketMQ是不能保证主备的自动切换的，所以目前主发生故障的时候，我们采用人工手动切换方式。</p>
+<p>在RocketMQ的Deleger版本中，提供了多副本的解决方案，可以做到自动选主，自动切换，正在探索是否是一个好的解决的方案。</p>
+<h3 id="Phoenix后续的RoadMap"><a href="#Phoenix后续的RoadMap" class="headerlink" title="Phoenix后续的RoadMap"></a>Phoenix后续的RoadMap</h3><ul>
+<li>CServer主备切换</li>
+<li>横向扩容支持</li>
+<li>RocketMQ故障自动切换（基于Deleger方案）</li>
+</ul>
+
+
+<div class="article-footer reveal fs14"><section id="license"><div class="header"><span>许可协议</span></div><div class="body"><p>本文采用 <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">署名-非商业性使用-相同方式共享 4.0 国际</a> 许可协议，转载请注明出处。</p>
+</div></section></div>
+
+</article>
+
+<div class="related-wrap reveal" id="read-next"><section class="header cap theme"><span>接下来阅读</span></section><section class="body fs14"><div class="line"></div><a id="prev" href="/flink-source-1/">Flink源码解析[Source](一) - 为什么要解析Source源码<span class="note">较新</span></a><div class="line"></div><a id="more" href="/archives">检索全部文章</a></section></div>
+
+
+
+
+
+
+  <div class='related-wrap md reveal' id="comments">
+    <div class='cmt-title cap theme'>
+      快来参与讨论吧
+    </div>
+    <div class='cmt-body beaudar'>
+      
+
+<svg class="loading" style="vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2709"><path d="M832 512c0-176-144-320-320-320V128c211.2 0 384 172.8 384 384h-64zM192 512c0 176 144 320 320 320v64C300.8 896 128 723.2 128 512h64z" p-id="2710"></path></svg>
+
+<div id="beaudar" repo="shibd/shibd.github.io" issue-term="pathname" theme="preferred-color-scheme" input-position="top" comment-order="desc" loading="false" branch="master"></div>
+
+    </div>
+  </div>
+
+
+
+      
+<footer class="page-footer reveal fs12"><hr><div class="sitemap"><div class="sitemap-group"><span class="fs14">Blog</span><a href="/">Recent Update</a><a href="/blog/categories/">Categories</a><a href="/blog/tags/">Tags</a><a href="/blog/archives/">Archives</a></div><div class="sitemap-group"><span class="fs14">Wiki</span><a href="/wiki/tags/%E6%8A%80%E6%9C%AF%E5%8A%A0%E6%B2%B9%E7%AB%99/">技术加油站</a><a href="/wiki/">...</a></div><div class="sitemap-group"><span class="fs14">Social</span><a href="/friends/">Friends</a><a href="/about/#comments">Comments</a><a target="_blank" rel="noopener" href="https://open.spotify.com/">Spotify</a></div><div class="sitemap-group"><span class="fs14">More</span><a href="/about/">About</a><a href="/wiki/resume">Resume</a><a target="_blank" rel="noopener" href="https://github.com/shibd">GitHub</a></div></div><div class="text"><object data="https://img.shields.io/static/v1?label=强力驱动&message=Hexo&style=social&logo=Hexo&logoColor=0E83CD&link=https://hexo.io/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=网站部署&message=GitHub&style=social&logo=GitHub&logoColor=181717&link=https://github.com/shibd"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=网站部署&message=Vercel&style=social&logo=Vercel&logoColor=000000&link=https://vercel.com"></object> &nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=图片分发&message=jsDelivr&style=social&logo=jsDelivr&logoColor=E84D3D&link=https://www.jsdelivr.com/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=域名解析&message=Aliyun&style=social&logo=Alibaba Cloud&logoColor=FF6A00&link=https://www.aliyun.com/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=许可协议&message=CC BY-NC-SA 4.0&style=social&logo=Creative Commons&logoColor=EF9421&link=https://creativecommons.org/licenses/by-nc-sa/4.0/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=博客作者&message=Baozi&style=social&logo=Blogger&logoColor=FF5722&link=https://shibd.github.io/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=原创主题&message=Stellar&style=social&logo=Badoo&logoColor=783BF9&link=https://github.com/xaoxuu/hexo-theme-stellar/tree/1.4.0"></object>&nbsp;&nbsp;</div></footer>
+
+      <div class='float-panel mobile-only blur' style='display:none'>
+  <button type='button' class='sidebar-toggle mobile' onclick='sidebar.toggle()'>
+    <svg class="icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="15301"><path d="M566.407 808.3c26.9-0.1 49.3-20.8 51.6-47.6-1.9-27.7-23.9-49.7-51.6-51.6h-412.6c-28.2-1.4-52.6 19.5-55.5 47.6 2.3 26.8 24.6 47.5 51.6 47.6h416.5v4z m309.3-249.9c26.9-0.1 49.3-20.8 51.6-47.6-2.2-26.8-24.6-47.5-51.6-47.6h-721.9c-27.7-2.8-52.5 17.4-55.3 45.1-0.1 0.8-0.1 1.7-0.2 2.5 0.9 27.2 23.6 48.5 50.7 47.6H875.707z m-103.1-245.9c26.9-0.1 49.3-20.8 51.6-47.6-0.4-28.3-23.2-51.1-51.5-51.6h-618.9c-29.5-1.1-54.3 21.9-55.5 51.4v0.2c1.4 27.8 25.2 49.2 53 47.8 0.8 0 1.7-0.1 2.5-0.2h618.8z" p-id="15302"></path><path d="M566.407 808.3c26.9-0.1 49.3-20.8 51.6-47.6-1.9-27.7-23.9-49.7-51.6-51.6h-412.6c-28.2-1.4-52.6 19.5-55.5 47.6 1.9 27.7 23.9 49.7 51.6 51.6h416.5z m309.3-249.9c26.9-0.1 49.3-20.8 51.6-47.6-2.2-26.8-24.6-47.5-51.6-47.6h-721.9c-27.7-2.8-52.5 17.4-55.3 45.1-0.1 0.8-0.1 1.7-0.2 2.5 0.9 27.2 23.6 48.5 50.7 47.6H875.707z m-103.1-245.9c26.9-0.1 49.3-20.8 51.6-47.6-0.4-28.3-23.2-51.1-51.5-51.6h-618.9c-29.5-1.1-54.3 21.9-55.5 51.4v0.2c1.4 27.8 25.2 49.2 53 47.8 0.8 0 1.7-0.1 2.5-0.2h618.8z" p-id="15303"></path></svg>
+  </button>
+</div>
+
+    </div>
+  </div>
+  <div class='scripts'>
+    <script type="text/javascript">
+  stellar = {
+    // 懒加载 css https://github.com/filamentgroup/loadCSS
+    loadCSS: (href, before, media, attributes) => {
+      var doc = window.document;
+      var ss = doc.createElement("link");
+      var ref;
+      if (before) {
+        ref = before;
+      } else {
+        var refs = (doc.body || doc.getElementsByTagName("head")[0]).childNodes;
+        ref = refs[refs.length - 1];
+      }
+      var sheets = doc.styleSheets;
+      if (attributes) {
+        for (var attributeName in attributes) {
+          if (attributes.hasOwnProperty(attributeName)) {
+            ss.setAttribute(attributeName, attributes[attributeName]);
+          }
+        }
+      }
+      ss.rel = "stylesheet";
+      ss.href = href;
+      ss.media = "only x";
+      function ready(cb) {
+        if (doc.body) {
+          return cb();
+        }
+        setTimeout(function () {
+          ready(cb);
+        });
+      }
+      ready(function () {
+        ref.parentNode.insertBefore(ss, before ? ref : ref.nextSibling);
+      });
+      var onloadcssdefined = function (cb) {
+        var resolvedHref = ss.href;
+        var i = sheets.length;
+        while (i--) {
+          if (sheets[i].href === resolvedHref) {
+            return cb();
+          }
+        }
+        setTimeout(function () {
+          onloadcssdefined(cb);
+        });
+      };
+      function loadCB() {
+        if (ss.addEventListener) {
+          ss.removeEventListener("load", loadCB);
+        }
+        ss.media = media || "all";
+      }
+      if (ss.addEventListener) {
+        ss.addEventListener("load", loadCB);
+      }
+      ss.onloadcssdefined = onloadcssdefined;
+      onloadcssdefined(loadCB);
+      return ss;
+    },
+
+    // 从 butterfly 和 volantis 获得灵感
+    loadScript: (src, opt) => new Promise((resolve, reject) => {
+      var script = document.createElement('script');
+      script.src = src;
+      if (opt) {
+        for (let key of Object.keys(opt)) {
+          script[key] = opt[key]
+        }
+      } else {
+        // 默认异步，如果需要同步，第二个参数传入 {} 即可
+        script.async = true
+      }
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    }),
+
+    // https://github.com/jerryc127/hexo-theme-butterfly
+    jQuery: (fn) => {
+      if (typeof jQuery === 'undefined') {
+        stellar.loadScript(stellar.plugins.jQuery).then(fn)
+      } else {
+        fn()
+      }
+    }
+  };
+  stellar.github = 'https://github.com/xaoxuu/hexo-theme-stellar/tree/1.4.1';
+  stellar.config = {
+    date_suffix: {
+      just: '刚刚',
+      min: '分钟前',
+      hour: '小时前',
+      day: '天前',
+      month: '个月前',
+    },
+  };
+
+  // required plugins (only load if needs)
+  stellar.plugins = {
+    jQuery: 'https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js',
+    sitesjs: '/js/plugins/sites.js',
+    friendsjs: '/js/plugins/friends.js',
+  };
+
+  // optional plugins
+  if ('true' == 'true') {
+    stellar.plugins.lazyload = Object.assign({"enable":true,"js":"https://cdn.jsdelivr.net/npm/vanilla-lazyload@17.3.1/dist/lazyload.min.js","transition":"blur"});
+  }
+  if ('true' == 'true') {
+    stellar.plugins.swiper = Object.assign({"enable":true,"css":"https://unpkg.com/swiper/swiper-bundle.min.css","js":"https://unpkg.com/swiper/swiper-bundle.min.js"});
+  }
+  if ('' == 'true') {
+    stellar.plugins.scrollreveal = Object.assign({"enable":null,"js":"https://cdn.jsdelivr.net/npm/scrollreveal@4.0.9/dist/scrollreveal.min.js","distance":"8px","duration":500,"interval":100,"scale":1});
+  }
+  if ('true' == 'true') {
+    stellar.plugins.preload = Object.assign({"enable":true,"service":"flying_pages","instant_page":"https://cdn.jsdelivr.net/gh/volantis-x/cdn-volantis@4.1.2/js/instant_page.js","flying_pages":"https://cdn.jsdelivr.net/gh/gijo-varghese/flying-pages@2.1.2/flying-pages.min.js"});
+  }
+</script>
+
+<!-- required -->
+
+  
+<script src="/js/main.js" async></script>
+
+
+
+<!-- optional -->
+
+  <script>
+  function loadBeaudar() {
+    const els = document.querySelectorAll("#comments #beaudar");
+    if (els.length === 0) return;
+    els.forEach((el, i) => {
+      try {
+        el.innerHTML = '';
+      } catch (error) {
+        console.log(error);
+      }
+      var script = document.createElement('script');
+      script.src = 'https://beaudar.lipk.org/client.js';
+      script.async = true;
+      for (let key of Object.keys(el.attributes)) {
+        let attr = el.attributes[key];
+        if (['class', 'id'].includes(attr.name) === false) {
+          script.setAttribute(attr.name, attr.value);
+        }
+      }
+      el.appendChild(script);
+    });
+  }
+  window.addEventListener('DOMContentLoaded', (event) => {
+      loadBeaudar();
+  });
+</script>
+
+
+
+
+<!-- inject -->
+
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang='zh-CN'>
+
+<head>
+  <meta name="generator" content="Hexo 5.4.0">
+  <meta charset="utf-8">
+  
+
+  <meta http-equiv='x-dns-prefetch-control' content='on' />
+  <link rel='dns-prefetch' href='https://cdn.jsdelivr.net'>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+  <meta name="renderer" content="webkit">
+  <meta name="force-rendering" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="HandheldFriendly" content="True" >
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" content="#f8f8f8">
+  <title>使用Spring Websocket Stomp协议设计推送中心 - 无敌小包子</title>
+
+  
+    <meta name="description" content="概述本文是WebSocket推送中心的第三章节， 本系列文章是在Spring Websocket Stomp的基础上实现的推送系统，计划包含如下几篇文章： 第一篇：Spring Websocket Stomp介绍第二篇：基于Websocket Stomp的推送中心实现第三篇：推送中心单机支持百万级连接的晋级之路第四篇：推送中心的集群架构方案设计落地 本章主线前三章介绍了推送中心的设计，单机支持百万">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Websocket推送中心(四)-推送中心的集群架构">
+<meta property="og:url" content="https://shibd.github.io/message-center-4/">
+<meta property="og:site_name" content="无敌小包子">
+<meta property="og:description" content="概述本文是WebSocket推送中心的第三章节， 本系列文章是在Spring Websocket Stomp的基础上实现的推送系统，计划包含如下几篇文章： 第一篇：Spring Websocket Stomp介绍第二篇：基于Websocket Stomp的推送中心实现第三篇：推送中心单机支持百万级连接的晋级之路第四篇：推送中心的集群架构方案设计落地 本章主线前三章介绍了推送中心的设计，单机支持百万">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://shibd.github.io/image/message-center/architecture4-1.jpg">
+<meta property="og:image" content="https://shibd.github.io/image/message-center/architecture4-2.jpg">
+<meta property="og:image" content="https://shibd.github.io/image/message-center/architecture4-3.jpg">
+<meta property="og:image" content="https://shibd.github.io/image/message-center/architecture4-4.jpg">
+<meta property="og:image" content="https://shibd.github.io/image/message-center/liucheng1.jpg">
+<meta property="og:image" content="https://shibd.github.io/image/message-center/architecture4-5.jpg">
+<meta property="article:published_time" content="2019-08-18T00:00:00.000Z">
+<meta property="article:modified_time" content="2019-08-18T00:00:00.000Z">
+<meta property="article:author" content="baozi">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="架构">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://shibd.github.io/image/message-center/architecture4-1.jpg">
+  
+  
+
+  <!-- feed -->
+  
+
+  
+    
+<link rel="stylesheet" href="/css/main.css">
+
+  
+
+  
+    <link rel="shortcut icon" href="/image/base/apple-touch-icon.png">
+  
+
+  
+</head>
+
+<body>
+  
+
+
+  <div class='l_body' id='start'>
+    <aside class='l_left' layout='post'>
+    
+
+
+<header class="header">
+
+<div class="logo-wrap"><a class="avatar" href="/about/"><div class="bg" style="opacity:0;background-image:url(https://cdn.jsdelivr.net/gh/cdn-x/placeholder@1.0.2/avatar/round/rainbow64@3x.webp);"></div><img no-lazy class="avatar" src="/image/base/apple-touch-icon.png" onerror="javascript:this.classList.add('error');this.src='https://cdn.jsdelivr.net/gh/cdn-x/placeholder@1.0.1/image/2659360.svg';"></a><a class="title" href="/%E6%97%A0%E6%95%8C%E5%B0%8F%E5%8C%85%E5%AD%90"><div class="main">无敌小包子</div></a></div>
+<nav class="menu dis-select"><a class="nav-item active" href="/">文章</a><a class="nav-item" href="/wiki/">项目</a><a class="nav-item" href="/about/">关于</a></nav></header>
+
+<div class="widgets">
+
+<div class="widget-wrap single" id="toc"><div class="widget-header cap dis-select"><span class="name">本文目录</span></div><div class="widget-body fs14"><div class="doc-tree active"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A6%82%E8%BF%B0"><span class="toc-text">概述</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9C%AC%E7%AB%A0%E4%B8%BB%E7%BA%BF"><span class="toc-text">本章主线</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%9B%AE%E5%89%8D%E6%9E%B6%E6%9E%84"><span class="toc-text">目前架构</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9B%86%E7%BE%A4%E6%9E%B6%E6%9E%841%EF%BC%88%E4%BD%BF%E7%94%A8Kafka-WebSocket%E4%BB%A3%E7%90%86%EF%BC%89"><span class="toc-text">集群架构1（使用Kafka + WebSocket代理）</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%AF%B9%E7%B3%BB%E7%BB%9F%E5%90%8E%E7%AB%AF%E9%80%8F%E6%98%8E"><span class="toc-text">对系统后端透明</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%AF%B9%E5%AE%A2%E6%88%B7%E7%AB%AF%E9%80%8F%E6%98%8E"><span class="toc-text">对客户端透明</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E9%AB%98%E5%8F%AF%E7%94%A8"><span class="toc-text">如何高可用</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9B%86%E7%BE%A4%E6%9E%B6%E6%9E%842%EF%BC%88Kafka-%E6%B3%A8%E5%86%8C%E4%B8%AD%E5%BF%83%EF%BC%89"><span class="toc-text">集群架构2（Kafka + 注册中心）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol></div></div></div>
+
+
+</div>
+<footer class="footer dis-select"><div class="social-wrap"><a class="social" title="GitHub" href="https://github.com/shibd/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/github.svg"/></a><a class="social" title="Spotify" href="https://open.spotify.com/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/music.svg"/></a><a class="social" title="Unsplash" href="https://unsplash.com/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/music.svg"/></a><a class="social" title="Comments" href="/about/#comments" rel="noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/message.svg"/></a></div></footer>
+
+    </aside>
+    <div class='l_main'>
+      
+
+      
+
+
+<div class="bread-nav fs12"><div id="breadcrumb"><a class="cap breadcrumb" href="/">主页</a><span class="sep"></span><a class="cap breadcrumb" href="/">文章</a><span class="sep"></span><a class="cap breadcrumb-link" href="/categories/websocket%E6%8E%A8%E9%80%81%E4%B8%AD%E5%BF%83/">Websocket推送中心</a></div><div id="post-meta">发布于&nbsp;<time datetime="2019-08-18T00:00:00.000Z">2019年8月18日</time></div></div>
+
+<article class='content md post'>
+<h1 class="article-title"><span>Websocket推送中心(四)-推送中心的集群架构</span></h1>
+<h3 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h3><p>本文是WebSocket推送中心的第三章节， 本系列文章是在Spring Websocket Stomp的基础上实现的推送系统，计划包含如下几篇文章：</p>
+<p><strong>第一篇</strong>：<a href="../message-center-1">Spring Websocket Stomp介绍</a><br><br><strong>第二篇</strong>：<a href="../message-center-2">基于Websocket Stomp的推送中心实现</a><br><br><strong>第三篇</strong>：<a href="../message-center-3">推送中心单机支持百万级连接的晋级之路</a><br><br><strong>第四篇</strong>：<a href="../message-center-4">推送中心的集群架构方案设计落地</a><br></p>
+<h3 id="本章主线"><a href="#本章主线" class="headerlink" title="本章主线"></a>本章主线</h3><p>前三章介绍了推送中心的设计，单机支持百万连接。到目前为止推送中心还是单体的，如果公司业务规模超过百万，该如何横向扩容，推送中心如何避免单点故障，如何实现高可用。</p>
+<h3 id="目前架构"><a href="#目前架构" class="headerlink" title="目前架构"></a>目前架构</h3><p>到目前为止，推送中心就只有一个推送服务，<code>系统后端</code>调用推送服务的Restful接口，推送服务根据<code>主题</code>找到相对应的WebSocket连接，推送消息至客户端。</p>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/message-center/architecture4-1.jpg"></p>
+<p>要做集群，我们先尝试很暴力的加一个服务进来，看看会是什么情况。</p>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/message-center/architecture4-2.jpg"></p>
+<p>增加一个推送服务，<code>系统后端</code>和<code>客户端</code>要使用就要配置新的推送服务的地址。这种架构下，<code>系统后端</code>要发送广播消息就要分别调用俩个推送服务。而且如果推送服务更换地址，增加或减少实例个数，对<code>系统后端</code>和<code>客户端</code>都不是透明的。</p>
+<h3 id="集群架构1（使用Kafka-WebSocket代理）"><a href="#集群架构1（使用Kafka-WebSocket代理）" class="headerlink" title="集群架构1（使用Kafka + WebSocket代理）"></a>集群架构1（使用Kafka + WebSocket代理）</h3><p>目前阶段采用的架构方式</p>
+<h4 id="对系统后端透明"><a href="#对系统后端透明" class="headerlink" title="对系统后端透明"></a>对系统后端透明</h4><p>上述增加一个推送服务后，<code>系统后端</code>要调用俩个推送服务才能达到给各个客户端广播的效果，本质上是因为推送服务并不是无状态的，各个推送服务和不同的客户端建立的长连接，这个<code>连接</code>是做不了无状态的。</p>
+<p>为了达到推送中心对于<code>系统后端</code>透明，我们需要在推送服务之上加一层服务代理。这个服务代理要有自动发现推送服务，而且可以把一个推送请求分别调用不同的推送服务完成推送。</p>
+<p>消息中间件再合适不过了，如下。面向<code>系统后端</code>在所有推送服务至上加一层MQ，公司内部使用Kafka。每个推送服务使用不同的group订阅相同的MQ的topic，根据topic中的内容，每个推送服务找到自己对应的<code>连接</code>推送即可。</p>
+<p>我们认为kafka不会成为系统瓶颈，消息量很大的情况下，我们可以不同的项目使用不同的topic来均摊broker的压力。</p>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/message-center/architecture4-3.jpg"></p>
+<p>所以现在，对于<code>系统后端</code>来说，我们可以说推送中心是可以横向扩容的了。</p>
+<h4 id="对客户端透明"><a href="#对客户端透明" class="headerlink" title="对客户端透明"></a>对客户端透明</h4><p>我们在推送中心之前加了一层kafka作为消息代理，做到了推送中心对<code>系统后端</code>透明。但对于客户端还是不透明的，客户端发起连接时还要考虑到底连接哪个推送服务，如果推送服务更换IP，更换实例都会影响到客户端。</p>
+<p>最容易想到的解决办法是在推送服务面向客户端加一层网络代理，比如使用Nginx代理websocket连接。nginx可以轮训推送服务，代理发起WebSocket连接，这样推送服务对客户端也是透明的了。<br><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/message-center/architecture4-4.jpg"></p>
+<p>Nginx代理WebSocket连接，实则是先自己作为服务端和客户端建立长连接，然后再作为客户端和推送中心建立长连接。我们在上篇文章说到，一个客户端最多可以发起65535个长连接，所以使用nginx代理WebSocket连接就会遇到65535瓶颈。本来一个推送服务可以支持百万的长连接，但是一个nginx就把连接数卡到了6W，想想上篇的文章调优，难道要无功而返？</p>
+<p>目前这种架构方式虽然长连接瓶颈卡在了6W，但目前公司使用是可以接受的，业务量级还没有达到如此。另外相关文章提到可以使用LVS的DR模式来做负载均衡可以突破端口的限制，笔者没有使用，感兴趣的同学可以<a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_40470303/article/details/80541639">参考</a>。</p>
+<h4 id="如何高可用"><a href="#如何高可用" class="headerlink" title="如何高可用"></a>如何高可用</h4><p>上面分别使用Kafka和Nginx做到对服务端和客户端透明，虽然因为nginx的瓶颈，做不了横向扩容，但是推送中心应该是要保证高可用的。比如一台推送服务挂了，客户端和服务端应该可以正常使用才行。</p>
+<p>因为推送服务是维护了<code>&lt;主题, 连接&gt;</code>的状态的，这个<code>连接</code>是客户端和服务端握手好的资源，这个是不能无状态的。为了实现推送中心的高可用，要保障客户端能自动重连。</p>
+<blockquote>
+<p>一个推送服务死掉，断开所有客户端的连接，客户端检测到重新发起连接请求，nginx代理到另一台好的推送服务，连接完毕。</p>
+</blockquote>
+<p>javascript重连代码(来自<strong>大都督</strong>)</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">errorCallback</span>(<span class="params">error</span>) </span>&#123;</span><br><span class="line"></span><br><span class="line">    setConnected(<span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (_breakReason === INVALID_TOKEN) &#123;</span><br><span class="line">        <span class="comment">// error callback will be called twice, that&#x27;s why we record _breakReason with first call</span></span><br><span class="line">        <span class="comment">// we should just leave the callback if _breakReason from last call exist and match invalid_token</span></span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// quit here since token is checked as invalid by server</span></span><br><span class="line">    <span class="comment">// no need to re-connect with same arguments</span></span><br><span class="line">    <span class="keyword">if</span> (</span><br><span class="line">        error &amp;&amp;</span><br><span class="line">        error.headers &amp;&amp;</span><br><span class="line">        error.headers.message &amp;&amp;</span><br><span class="line">        error.headers.message.includes(<span class="string">&#x27;Failed to send message&#x27;</span>)</span><br><span class="line">    ) &#123;</span><br><span class="line">        _setBreakReason(INVALID_TOKEN)</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line">    reconnect()</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">reconnect</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">&quot;30s retrying connect&quot;</span>)</span><br><span class="line">    <span class="built_in">setTimeout</span>(<span class="function">() =&gt;</span> &#123;</span><br><span class="line">        connect();</span><br><span class="line">    &#125;, <span class="number">30000</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="集群架构2（Kafka-注册中心）"><a href="#集群架构2（Kafka-注册中心）" class="headerlink" title="集群架构2（Kafka + 注册中心）"></a>集群架构2（Kafka + 注册中心）</h3><p>上述架构由于使用nginx代理WebSocket会遇到65535端口限制，虽然目前公司体量不大，采用了这种方式。但后续免不了改造，下面简单说一下后续的改造思路。</p>
+<p>使用nginx代理WebSocket是为了做到<code>推送中心</code>对<code>客户端</code>透明时提出的解决方案。首先透明背后的含义是：<code>如果推送中心实例重启，更换个数，更换地址，应该做到客户端不改变代码，不重新编译，能自动识别，自动切换</code>。</p>
+<p>我们也可以不使用代理，客户端直接连接推送服务，只不过在连接推送服务之前先动态获取可用的服务的地址，可以引入<code>注册中心</code>来解决该问题，该<code>注册中心</code>是面向客户端的。<code>注册中心</code>负责维护推送中心中各个推送服务的状态。引入注册中心后客户端调用流程如下:<br><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/message-center/liucheng1.jpg"></p>
+<p>架构图<br><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/message-center/architecture4-5.jpg"></p>
+<p>该架构模式下，推送中心也做到了对客户端透明，而且可以动态扩充实例个数。该注册中心还可以负责统一收集各个推送服务的连接情况，统一管理，解决使用nginx代理架构下连接分散管理的问题。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>推送中心到此分享完毕，其实推送中心的代码很少，借助了框架来实现，四篇文章分享了笔者在设计推送中心以及实践过程中的一些总结，很多地方写的很粗糙，欢迎指正，谢谢。</p>
+
+
+<div class="article-footer reveal fs14"><section id="license"><div class="header"><span>许可协议</span></div><div class="body"><p>本文采用 <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">署名-非商业性使用-相同方式共享 4.0 国际</a> 许可协议，转载请注明出处。</p>
+</div></section></div>
+
+</article>
+
+<div class="related-wrap reveal" id="read-next"><section class="header cap theme"><span>接下来阅读</span></section><section class="body fs14"><a id="next" href="/message-center-3/">Websocket推送中心(三)-单机100W连接(C1000K)达成<span class="note">较早</span></a><div class="line"></div><a id="prev" href="/queue-share/">无处不在的队列<span class="note">较新</span></a><div class="line"></div><a id="more" href="/archives">检索全部文章</a></section></div>
+
+
+
+
+
+
+  <div class='related-wrap md reveal' id="comments">
+    <div class='cmt-title cap theme'>
+      快来参与讨论吧
+    </div>
+    <div class='cmt-body beaudar'>
+      
+
+<svg class="loading" style="vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2709"><path d="M832 512c0-176-144-320-320-320V128c211.2 0 384 172.8 384 384h-64zM192 512c0 176 144 320 320 320v64C300.8 896 128 723.2 128 512h64z" p-id="2710"></path></svg>
+
+<div id="beaudar" repo="shibd/shibd.github.io" issue-term="pathname" theme="preferred-color-scheme" input-position="top" comment-order="desc" loading="false" branch="master"></div>
+
+    </div>
+  </div>
+
+
+
+      
+<footer class="page-footer reveal fs12"><hr><div class="sitemap"><div class="sitemap-group"><span class="fs14">Blog</span><a href="/">Recent Update</a><a href="/blog/categories/">Categories</a><a href="/blog/tags/">Tags</a><a href="/blog/archives/">Archives</a></div><div class="sitemap-group"><span class="fs14">Wiki</span><a href="/wiki/tags/%E6%8A%80%E6%9C%AF%E5%8A%A0%E6%B2%B9%E7%AB%99/">技术加油站</a><a href="/wiki/">...</a></div><div class="sitemap-group"><span class="fs14">Social</span><a href="/friends/">Friends</a><a href="/about/#comments">Comments</a><a target="_blank" rel="noopener" href="https://open.spotify.com/">Spotify</a></div><div class="sitemap-group"><span class="fs14">More</span><a href="/about/">About</a><a href="/wiki/resume">Resume</a><a target="_blank" rel="noopener" href="https://github.com/shibd">GitHub</a></div></div><div class="text"><object data="https://img.shields.io/static/v1?label=强力驱动&message=Hexo&style=social&logo=Hexo&logoColor=0E83CD&link=https://hexo.io/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=网站部署&message=GitHub&style=social&logo=GitHub&logoColor=181717&link=https://github.com/shibd"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=网站部署&message=Vercel&style=social&logo=Vercel&logoColor=000000&link=https://vercel.com"></object> &nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=图片分发&message=jsDelivr&style=social&logo=jsDelivr&logoColor=E84D3D&link=https://www.jsdelivr.com/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=域名解析&message=Aliyun&style=social&logo=Alibaba Cloud&logoColor=FF6A00&link=https://www.aliyun.com/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=许可协议&message=CC BY-NC-SA 4.0&style=social&logo=Creative Commons&logoColor=EF9421&link=https://creativecommons.org/licenses/by-nc-sa/4.0/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=博客作者&message=Baozi&style=social&logo=Blogger&logoColor=FF5722&link=https://shibd.github.io/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=原创主题&message=Stellar&style=social&logo=Badoo&logoColor=783BF9&link=https://github.com/xaoxuu/hexo-theme-stellar/tree/1.4.0"></object>&nbsp;&nbsp;</div></footer>
+
+      <div class='float-panel mobile-only blur' style='display:none'>
+  <button type='button' class='sidebar-toggle mobile' onclick='sidebar.toggle()'>
+    <svg class="icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="15301"><path d="M566.407 808.3c26.9-0.1 49.3-20.8 51.6-47.6-1.9-27.7-23.9-49.7-51.6-51.6h-412.6c-28.2-1.4-52.6 19.5-55.5 47.6 2.3 26.8 24.6 47.5 51.6 47.6h416.5v4z m309.3-249.9c26.9-0.1 49.3-20.8 51.6-47.6-2.2-26.8-24.6-47.5-51.6-47.6h-721.9c-27.7-2.8-52.5 17.4-55.3 45.1-0.1 0.8-0.1 1.7-0.2 2.5 0.9 27.2 23.6 48.5 50.7 47.6H875.707z m-103.1-245.9c26.9-0.1 49.3-20.8 51.6-47.6-0.4-28.3-23.2-51.1-51.5-51.6h-618.9c-29.5-1.1-54.3 21.9-55.5 51.4v0.2c1.4 27.8 25.2 49.2 53 47.8 0.8 0 1.7-0.1 2.5-0.2h618.8z" p-id="15302"></path><path d="M566.407 808.3c26.9-0.1 49.3-20.8 51.6-47.6-1.9-27.7-23.9-49.7-51.6-51.6h-412.6c-28.2-1.4-52.6 19.5-55.5 47.6 1.9 27.7 23.9 49.7 51.6 51.6h416.5z m309.3-249.9c26.9-0.1 49.3-20.8 51.6-47.6-2.2-26.8-24.6-47.5-51.6-47.6h-721.9c-27.7-2.8-52.5 17.4-55.3 45.1-0.1 0.8-0.1 1.7-0.2 2.5 0.9 27.2 23.6 48.5 50.7 47.6H875.707z m-103.1-245.9c26.9-0.1 49.3-20.8 51.6-47.6-0.4-28.3-23.2-51.1-51.5-51.6h-618.9c-29.5-1.1-54.3 21.9-55.5 51.4v0.2c1.4 27.8 25.2 49.2 53 47.8 0.8 0 1.7-0.1 2.5-0.2h618.8z" p-id="15303"></path></svg>
+  </button>
+</div>
+
+    </div>
+  </div>
+  <div class='scripts'>
+    <script type="text/javascript">
+  stellar = {
+    // 懒加载 css https://github.com/filamentgroup/loadCSS
+    loadCSS: (href, before, media, attributes) => {
+      var doc = window.document;
+      var ss = doc.createElement("link");
+      var ref;
+      if (before) {
+        ref = before;
+      } else {
+        var refs = (doc.body || doc.getElementsByTagName("head")[0]).childNodes;
+        ref = refs[refs.length - 1];
+      }
+      var sheets = doc.styleSheets;
+      if (attributes) {
+        for (var attributeName in attributes) {
+          if (attributes.hasOwnProperty(attributeName)) {
+            ss.setAttribute(attributeName, attributes[attributeName]);
+          }
+        }
+      }
+      ss.rel = "stylesheet";
+      ss.href = href;
+      ss.media = "only x";
+      function ready(cb) {
+        if (doc.body) {
+          return cb();
+        }
+        setTimeout(function () {
+          ready(cb);
+        });
+      }
+      ready(function () {
+        ref.parentNode.insertBefore(ss, before ? ref : ref.nextSibling);
+      });
+      var onloadcssdefined = function (cb) {
+        var resolvedHref = ss.href;
+        var i = sheets.length;
+        while (i--) {
+          if (sheets[i].href === resolvedHref) {
+            return cb();
+          }
+        }
+        setTimeout(function () {
+          onloadcssdefined(cb);
+        });
+      };
+      function loadCB() {
+        if (ss.addEventListener) {
+          ss.removeEventListener("load", loadCB);
+        }
+        ss.media = media || "all";
+      }
+      if (ss.addEventListener) {
+        ss.addEventListener("load", loadCB);
+      }
+      ss.onloadcssdefined = onloadcssdefined;
+      onloadcssdefined(loadCB);
+      return ss;
+    },
+
+    // 从 butterfly 和 volantis 获得灵感
+    loadScript: (src, opt) => new Promise((resolve, reject) => {
+      var script = document.createElement('script');
+      script.src = src;
+      if (opt) {
+        for (let key of Object.keys(opt)) {
+          script[key] = opt[key]
+        }
+      } else {
+        // 默认异步，如果需要同步，第二个参数传入 {} 即可
+        script.async = true
+      }
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    }),
+
+    // https://github.com/jerryc127/hexo-theme-butterfly
+    jQuery: (fn) => {
+      if (typeof jQuery === 'undefined') {
+        stellar.loadScript(stellar.plugins.jQuery).then(fn)
+      } else {
+        fn()
+      }
+    }
+  };
+  stellar.github = 'https://github.com/xaoxuu/hexo-theme-stellar/tree/1.4.1';
+  stellar.config = {
+    date_suffix: {
+      just: '刚刚',
+      min: '分钟前',
+      hour: '小时前',
+      day: '天前',
+      month: '个月前',
+    },
+  };
+
+  // required plugins (only load if needs)
+  stellar.plugins = {
+    jQuery: 'https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js',
+    sitesjs: '/js/plugins/sites.js',
+    friendsjs: '/js/plugins/friends.js',
+  };
+
+  // optional plugins
+  if ('true' == 'true') {
+    stellar.plugins.lazyload = Object.assign({"enable":true,"js":"https://cdn.jsdelivr.net/npm/vanilla-lazyload@17.3.1/dist/lazyload.min.js","transition":"blur"});
+  }
+  if ('true' == 'true') {
+    stellar.plugins.swiper = Object.assign({"enable":true,"css":"https://unpkg.com/swiper/swiper-bundle.min.css","js":"https://unpkg.com/swiper/swiper-bundle.min.js"});
+  }
+  if ('' == 'true') {
+    stellar.plugins.scrollreveal = Object.assign({"enable":null,"js":"https://cdn.jsdelivr.net/npm/scrollreveal@4.0.9/dist/scrollreveal.min.js","distance":"8px","duration":500,"interval":100,"scale":1});
+  }
+  if ('true' == 'true') {
+    stellar.plugins.preload = Object.assign({"enable":true,"service":"flying_pages","instant_page":"https://cdn.jsdelivr.net/gh/volantis-x/cdn-volantis@4.1.2/js/instant_page.js","flying_pages":"https://cdn.jsdelivr.net/gh/gijo-varghese/flying-pages@2.1.2/flying-pages.min.js"});
+  }
+</script>
+
+<!-- required -->
+
+  
+<script src="/js/main.js" async></script>
+
+
+
+<!-- optional -->
+
+  <script>
+  function loadBeaudar() {
+    const els = document.querySelectorAll("#comments #beaudar");
+    if (els.length === 0) return;
+    els.forEach((el, i) => {
+      try {
+        el.innerHTML = '';
+      } catch (error) {
+        console.log(error);
+      }
+      var script = document.createElement('script');
+      script.src = 'https://beaudar.lipk.org/client.js';
+      script.async = true;
+      for (let key of Object.keys(el.attributes)) {
+        let attr = el.attributes[key];
+        if (['class', 'id'].includes(attr.name) === false) {
+          script.setAttribute(attr.name, attr.value);
+        }
+      }
+      el.appendChild(script);
+    });
+  }
+  window.addEventListener('DOMContentLoaded', (event) => {
+      loadBeaudar();
+  });
+</script>
+
+
+
+
+<!-- inject -->
+
+
+  </div>
+</body>
+</html>

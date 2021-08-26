@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang='zh-CN'>
+
+<head>
+  <meta name="generator" content="Hexo 5.4.0">
+  <meta charset="utf-8">
+  
+
+  <meta http-equiv='x-dns-prefetch-control' content='on' />
+  <link rel='dns-prefetch' href='https://cdn.jsdelivr.net'>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+  <meta name="renderer" content="webkit">
+  <meta name="force-rendering" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="HandheldFriendly" content="True" >
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" content="#f8f8f8">
+  <title>使用Spring Websocket Stomp协议设计推送中心 - 无敌小包子</title>
+
+  
+    <meta name="description" content="概述公司开发项目众多，各个项目都有和终端推送的需求，于是决定实现一个公司级的推送中心，屏蔽技术细节，服务全公司。笔者在设计实现完后记录下心路历程。 本系列文章是在Spring Websocket Stomp的基础上实现的推送系统，计划包含如下几篇文章： 第一篇：Spring Websocket Stomp介绍第二篇：基于Websocket Stomp的推送中心实现第三篇：推送中心单机支持百万级连接">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Websocket推送中心(一)-Spring Websocket Stomp介绍">
+<meta property="og:url" content="https://shibd.github.io/message-center-1/">
+<meta property="og:site_name" content="无敌小包子">
+<meta property="og:description" content="概述公司开发项目众多，各个项目都有和终端推送的需求，于是决定实现一个公司级的推送中心，屏蔽技术细节，服务全公司。笔者在设计实现完后记录下心路历程。 本系列文章是在Spring Websocket Stomp的基础上实现的推送系统，计划包含如下几篇文章： 第一篇：Spring Websocket Stomp介绍第二篇：基于Websocket Stomp的推送中心实现第三篇：推送中心单机支持百万级连接">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://shibd.github.io/image/message-center/msg-ui.jpg">
+<meta property="og:image" content="https://shibd.github.io/image/message-center/architecture1.jpg">
+<meta property="article:published_time" content="2019-08-15T00:00:00.000Z">
+<meta property="article:modified_time" content="2019-08-15T00:00:00.000Z">
+<meta property="article:author" content="baozi">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="架构">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://shibd.github.io/image/message-center/msg-ui.jpg">
+  
+  
+
+  <!-- feed -->
+  
+
+  
+    
+<link rel="stylesheet" href="/css/main.css">
+
+  
+
+  
+    <link rel="shortcut icon" href="/image/base/apple-touch-icon.png">
+  
+
+  
+</head>
+
+<body>
+  
+
+
+  <div class='l_body' id='start'>
+    <aside class='l_left' layout='post'>
+    
+
+
+<header class="header">
+
+<div class="logo-wrap"><a class="avatar" href="/about/"><div class="bg" style="opacity:0;background-image:url(https://cdn.jsdelivr.net/gh/cdn-x/placeholder@1.0.2/avatar/round/rainbow64@3x.webp);"></div><img no-lazy class="avatar" src="/image/base/apple-touch-icon.png" onerror="javascript:this.classList.add('error');this.src='https://cdn.jsdelivr.net/gh/cdn-x/placeholder@1.0.1/image/2659360.svg';"></a><a class="title" href="/%E6%97%A0%E6%95%8C%E5%B0%8F%E5%8C%85%E5%AD%90"><div class="main">无敌小包子</div></a></div>
+<nav class="menu dis-select"><a class="nav-item active" href="/">文章</a><a class="nav-item" href="/wiki/">项目</a><a class="nav-item" href="/about/">关于</a></nav></header>
+
+<div class="widgets">
+
+<div class="widget-wrap single" id="toc"><div class="widget-header cap dis-select"><span class="name">本文目录</span></div><div class="widget-body fs14"><div class="doc-tree active"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A6%82%E8%BF%B0"><span class="toc-text">概述</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#WebSocket%E5%8D%8F%E8%AE%AE"><span class="toc-text">WebSocket协议</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#STOMP%E5%8D%8F%E8%AE%AE-Simple-Text-Oriented-Messaging-Protocol"><span class="toc-text">STOMP协议(Simple Text Oriented Messaging Protocol)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#SpringBoot%E5%AE%9E%E7%8E%B0Websocket%E5%92%8CSTOMP"><span class="toc-text">SpringBoot实现Websocket和STOMP</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Spring%E8%BF%90%E8%A1%8CWebsocket%E5%AE%9E%E7%8E%B0%E7%AE%80%E5%8D%95%E6%9C%8D%E5%8A%A1%E7%AB%AF%E6%8E%A8%E9%80%81%E6%B6%88%E6%81%AF"><span class="toc-text">Spring运行Websocket实现简单服务端推送消息</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%9C%BA%E6%99%AF%E6%8F%8F%E8%BF%B0"><span class="toc-text">场景描述</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%BASpring%E9%85%8D%E7%BD%AESTOMP%E6%B6%88%E6%81%AF"><span class="toc-text">为Spring配置STOMP消息</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%BC%96%E5%86%99%E5%8F%91%E9%80%81Controller"><span class="toc-text">编写发送Controller</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%89%8D%E7%AB%AF%E5%AE%9E%E7%8E%B0%E9%A1%B5%E9%9D%A2"><span class="toc-text">前端实现页面</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%BC%94%E7%A4%BA"><span class="toc-text">演示</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol></div></div></div>
+
+
+</div>
+<footer class="footer dis-select"><div class="social-wrap"><a class="social" title="GitHub" href="https://github.com/shibd/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/github.svg"/></a><a class="social" title="Spotify" href="https://open.spotify.com/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/music.svg"/></a><a class="social" title="Unsplash" href="https://unsplash.com/" target="_blank" rel="external nofollow noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/music.svg"/></a><a class="social" title="Comments" href="/about/#comments" rel="noopener noreferrer"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://cdn.jsdelivr.net/gh/gyl-coder/blogImgs@main/blog/img/social/message.svg"/></a></div></footer>
+
+    </aside>
+    <div class='l_main'>
+      
+
+      
+
+
+<div class="bread-nav fs12"><div id="breadcrumb"><a class="cap breadcrumb" href="/">主页</a><span class="sep"></span><a class="cap breadcrumb" href="/">文章</a><span class="sep"></span><a class="cap breadcrumb-link" href="/categories/websocket%E6%8E%A8%E9%80%81%E4%B8%AD%E5%BF%83/">Websocket推送中心</a></div><div id="post-meta">发布于&nbsp;<time datetime="2019-08-15T00:00:00.000Z">2019年8月15日</time></div></div>
+
+<article class='content md post'>
+<h1 class="article-title"><span>Websocket推送中心(一)-Spring Websocket Stomp介绍</span></h1>
+<h3 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h3><p>公司开发项目众多，各个项目都有和终端推送的需求，于是决定实现一个公司级的推送中心，屏蔽技术细节，服务全公司。笔者在设计实现完后记录下心路历程。</p>
+<p>本系列文章是在Spring Websocket Stomp的基础上实现的推送系统，计划包含如下几篇文章：</p>
+<p><strong>第一篇</strong>：<a href="../message-center-1">Spring Websocket Stomp介绍</a><br><br><strong>第二篇</strong>：<a href="../message-center-2">基于Websocket Stomp的推送中心实现</a><br><br><strong>第三篇</strong>：<a href="../message-center-3">推送中心单机支持百万级连接的晋级之路</a><br><br><strong>第四篇</strong>：<a href="../message-center-4">推送中心的集群架构方案设计落地</a><br></p>
+<h3 id="WebSocket协议"><a href="#WebSocket协议" class="headerlink" title="WebSocket协议"></a>WebSocket协议</h3><p>Websocket是为了解决服务端和客户端双向通信问题，采用长链接，避免了HTTP协议无状态反复解析请求头的问题。WebSocket协议细节不多解释，读者可以google学习。简单总结一下，WebSocket协议特点：</p>
+<ul>
+<li>TCP/IP中的应用层协议</li>
+<li>建立在TCP协议之上，全双工通信协议</li>
+<li>握手阶段采用Http协议，需要从Http协议升级而来</li>
+<li>没有同源限制，客户端可以与任意服务端建立连接</li>
+</ul>
+<h3 id="STOMP协议-Simple-Text-Oriented-Messaging-Protocol"><a href="#STOMP协议-Simple-Text-Oriented-Messaging-Protocol" class="headerlink" title="STOMP协议(Simple Text Oriented Messaging Protocol)"></a>STOMP协议(Simple Text Oriented Messaging Protocol)</h3><p>STOMP是一个用于C/S之间进行异步消息传输的简单文本协议, 全称是Simple Text Oriented Messaging Protocol。</p>
+<blockquote>
+<p><a target="_blank" rel="noopener" href="http://stomp.github.io/index.html">STOMP官方网站</a></p>
+</blockquote>
+<p>其实STOMP协议并不是为WS所设计的，它其实是消息队列的一种协议，和AMQP，JMS是平级的。 只不过由于它的简单性恰巧可以用于定义WS的消息体格式。<br>目前很多服务端消息队列都已经支持了STOMP，比如RabbitMQ，Apache ActiveMQ等。很多语言也都有STOMP协议的客户端解析库，像JAVA的Gozirra，C的libstomp，Python的pyactivemq，JavaScript的stomp.js等等。<a target="_blank" rel="noopener" href="https://juejin.im/post/5b7071ade51d45665816f8c0">原文</a></p>
+<p>RabbitMQ提供了WebSocket的插件，你可以通过使用STOMP + Websocket + RabbitMQ实现服务端推送。<a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/cn/opensource/os-cn-rabbit-mq/index.html">参考该文</a></p>
+<p>STOMP只是文本传输协议，并不参与通信细节。可以简单理解它是一个生产者/消费者模型的规范，服务端和客户端都可以推送和消费。而且他支持灵活的消息分发，比如应用可以自定义以为<code>/topic</code>打头的为发布/订阅模式，以<code>/user</code>打头的为点对点模式。</p>
+<p>Webcoekt结合STOMP就相当于实现了一个消息队列，服务端与客户端都可以作为生产者和消费者发送和消费消息，可以根具订阅不同的队列实现单薄、广播和多播(其实WebSocket是点对点的，广播和多播都只是服务端轮训所有客户端发送实现)。</p>
+<h3 id="SpringBoot实现Websocket和STOMP"><a href="#SpringBoot实现Websocket和STOMP" class="headerlink" title="SpringBoot实现Websocket和STOMP"></a>SpringBoot实现Websocket和STOMP</h3><p>Spring遵循STOMP协议内部做了实现，Spring内部对服务做了大量的抽象，可以参照<a target="_blank" rel="noopener" href="https://docs.spring.io/spring/docs/5.0.0.BUILD-SNAPSHOT/spring-framework-reference/html/websocket.html">官网</a>和<a target="_blank" rel="noopener" href="https://juejin.im/post/5b7071ade51d45665816f8c0#heading-20">该文</a>结合理解其实现。</p>
+<p>简单理解，你可以利用Spring配置服务端作为消费者订阅哪些topic消息，以及收到消息后处理方法。同样可以作为生产者为指定的topic里发送消息，例如<code>simple.send(&quot;/topic/group&quot;， &quot;message&quot;)</code></p>
+<p>其实应用在和对手建立链接后Spring会维护类似<code>Map&lt;&quot;/topic/group&quot;, List&lt;地址&gt;&gt;</code>这样的映射关系，如果是点对点消息则<code>Map&lt;&quot;/topic/userName/queue&quot;, 地址&gt;</code>。对于用户来说就不用维护链接信息，消息该发送给谁等问题，发送消息和接收消息都是操作<strong>topic</strong>。</p>
+<h3 id="Spring运行Websocket实现简单服务端推送消息"><a href="#Spring运行Websocket实现简单服务端推送消息" class="headerlink" title="Spring运行Websocket实现简单服务端推送消息"></a>Spring运行Websocket实现简单服务端推送消息</h3><h4 id="场景描述"><a href="#场景描述" class="headerlink" title="场景描述"></a>场景描述</h4><p>我们来实现推送中心的第一步，实现服务端向客户端推送消息，客户端展示。基于<a target="_blank" rel="noopener" href="https://spring.io/guides/gs/messaging-stomp-websocket/">官方demo</a>改造实现。我放到了推送中心的demo分支上。</p>
+<p><strong><a target="_blank" rel="noopener" href="https://github.com/shibd/socket.io.java.server.biz/tree/simple/demo">参考代码</a></strong></p>
+<h4 id="为Spring配置STOMP消息"><a href="#为Spring配置STOMP消息" class="headerlink" title="为Spring配置STOMP消息"></a>为Spring配置STOMP消息</h4><p>通过<code>@EnableWebSocketMessageBroker</code>启动Spring Websocket STOMP，注册端点，配置消息代理前缀</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> hello;</span><br><span class="line"><span class="keyword">import</span> org.springframework.context.annotation.Configuration;</span><br><span class="line"><span class="keyword">import</span> org.springframework.messaging.simp.config.MessageBrokerRegistry;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.socket.config.annotation.StompEndpointRegistry;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> baozi Websocket配置类</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="meta">@EnableWebSocketMessageBroker</span> <span class="comment">// 使用此注解启动websocket，使用broker来处理消息</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">WebSocketConfig</span> <span class="keyword">implements</span> <span class="title">WebSocketMessageBrokerConfigurer</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="comment">// 实现WebSocketMessageBrokerConfigurer中的此方法，配置消息代理（broker）</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">configureMessageBroker</span><span class="params">(MessageBrokerRegistry config)</span> </span>&#123;</span><br><span class="line">        <span class="comment">// 启用SimpleBroker，使得订阅到此&quot;topic&quot;前缀的客户端可以收到greeting消息.</span></span><br><span class="line">        config.enableSimpleBroker(<span class="string">&quot;/topic&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="comment">// 用来注册Endpoint，“/gs-guide-websocket”即为客户端尝试建立连接的后缀地址。</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">registerStompEndpoints</span><span class="params">(StompEndpointRegistry registry)</span> </span>&#123;</span><br><span class="line">        registry.addEndpoint(<span class="string">&quot;/gs-guide-websocket&quot;</span>).withSockJS();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="编写发送Controller"><a href="#编写发送Controller" class="headerlink" title="编写发送Controller"></a>编写发送Controller</h4><p>编写一个Controller接收http请求，解析并发送消息至<code>/topic/greetings</code>下的topic。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> hello;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.springframework.beans.factory.annotation.Autowired;</span><br><span class="line"><span class="keyword">import</span> org.springframework.messaging.simp.SimpMessagingTemplate;</span><br><span class="line"><span class="keyword">import</span> org.springframework.stereotype.Controller;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.bind.annotation.RequestBody;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.bind.annotation.RequestMapping;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.bind.annotation.RequestMethod;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.util.HtmlUtils;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> baozi</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">@Controller</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">GreetingController</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> SimpMessagingTemplate messagingTemplate;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@RequestMapping(value = &quot;/hello&quot;, method = RequestMethod.POST)</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">greeting</span><span class="params">(<span class="meta">@RequestBody</span> HelloMessage message)</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">        <span class="comment">// simulated delay</span></span><br><span class="line">        Thread.sleep(<span class="number">1000</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 发送消息到所有订阅topic/greetings的客户端</span></span><br><span class="line">        messagingTemplate.convertAndSend(<span class="string">&quot;/topic/greetings&quot;</span>,</span><br><span class="line">                <span class="keyword">new</span> Greeting(<span class="string">&quot;Hello, &quot;</span> + HtmlUtils.htmlEscape(message.getName()) + <span class="string">&quot;!&quot;</span>));</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="前端实现页面"><a href="#前端实现页面" class="headerlink" title="前端实现页面"></a>前端实现页面</h4><p>前端SockJS实现了WebSocket，stomp.js实现了STOMP协议。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">connect</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">    <span class="comment">// 建立与服务器的gs-guide-websocket断电的websocket链接</span></span><br><span class="line">    <span class="keyword">var</span> socket = <span class="keyword">new</span> SockJS(<span class="string">&#x27;/gs-guide-websocket&#x27;</span>);</span><br><span class="line">    stompClient = Stomp.over(socket);</span><br><span class="line">    stompClient.connect(&#123;&#125;, </span><br><span class="line">      <span class="comment">// 连接成功后的回调方法</span></span><br><span class="line">      <span class="function"><span class="keyword">function</span> (<span class="params">frame</span>) </span>&#123;</span><br><span class="line">        setConnected(<span class="literal">true</span>);</span><br><span class="line">        <span class="built_in">console</span>.log(<span class="string">&#x27;Connected: &#x27;</span> + frame);</span><br><span class="line">        <span class="comment">// 订阅服务端开启的/topic下的greetings地址</span></span><br><span class="line">        stompClient.subscribe(<span class="string">&#x27;/topic/greetings&#x27;</span>, <span class="function"><span class="keyword">function</span> (<span class="params">greeting</span>) </span>&#123;</span><br><span class="line">            <span class="comment">// 服务端发送消息，客户端收到展示</span></span><br><span class="line">            showGreeting(<span class="built_in">JSON</span>.parse(greeting.body).content);</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="演示"><a href="#演示" class="headerlink" title="演示"></a>演示</h4><ul>
+<li>打开<code>http://127.0.0.1:8080</code>点击Connect进行websocket连接。</li>
+<li>文本框输入消息点击发送，前端收到后端推送的刚才输入的消息。</li>
+</ul>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/message-center/msg-ui.jpg"></p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>目标是实现一个可以支持百万链接的推送中心，推送中心如何高可用，如何鉴权，websocket安全，如何使用该文都未涉及，后续篇章会陆续介绍。截止目前，我们使用Spring Websocket实现了前后端建立WebSocket链接，实现了后端给前端推送消息。简单架构，当然该”推送中心”还不是推送中心。</p>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="/image/message-center/architecture1.jpg"></p>
+
+
+<div class="article-footer reveal fs14"><section id="license"><div class="header"><span>许可协议</span></div><div class="body"><p>本文采用 <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">署名-非商业性使用-相同方式共享 4.0 国际</a> 许可协议，转载请注明出处。</p>
+</div></section></div>
+
+</article>
+
+<div class="related-wrap reveal" id="read-next"><section class="header cap theme"><span>接下来阅读</span></section><section class="body fs14"><a id="next" href="/flink-source-3/">Flink源码解析[Source](三) - 旧版Data Sources详解&源码<span class="note">较早</span></a><div class="line"></div><a id="prev" href="/message-center-2/">Websocket推送中心(二)-基于Stomp的推送中心设计<span class="note">较新</span></a><div class="line"></div><a id="more" href="/archives">检索全部文章</a></section></div>
+
+
+
+
+
+
+  <div class='related-wrap md reveal' id="comments">
+    <div class='cmt-title cap theme'>
+      快来参与讨论吧
+    </div>
+    <div class='cmt-body beaudar'>
+      
+
+<svg class="loading" style="vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2709"><path d="M832 512c0-176-144-320-320-320V128c211.2 0 384 172.8 384 384h-64zM192 512c0 176 144 320 320 320v64C300.8 896 128 723.2 128 512h64z" p-id="2710"></path></svg>
+
+<div id="beaudar" repo="shibd/shibd.github.io" issue-term="pathname" theme="preferred-color-scheme" input-position="top" comment-order="desc" loading="false" branch="master"></div>
+
+    </div>
+  </div>
+
+
+
+      
+<footer class="page-footer reveal fs12"><hr><div class="sitemap"><div class="sitemap-group"><span class="fs14">Blog</span><a href="/">Recent Update</a><a href="/blog/categories/">Categories</a><a href="/blog/tags/">Tags</a><a href="/blog/archives/">Archives</a></div><div class="sitemap-group"><span class="fs14">Wiki</span><a href="/wiki/tags/%E6%8A%80%E6%9C%AF%E5%8A%A0%E6%B2%B9%E7%AB%99/">技术加油站</a><a href="/wiki/">...</a></div><div class="sitemap-group"><span class="fs14">Social</span><a href="/friends/">Friends</a><a href="/about/#comments">Comments</a><a target="_blank" rel="noopener" href="https://open.spotify.com/">Spotify</a></div><div class="sitemap-group"><span class="fs14">More</span><a href="/about/">About</a><a href="/wiki/resume">Resume</a><a target="_blank" rel="noopener" href="https://github.com/shibd">GitHub</a></div></div><div class="text"><object data="https://img.shields.io/static/v1?label=强力驱动&message=Hexo&style=social&logo=Hexo&logoColor=0E83CD&link=https://hexo.io/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=网站部署&message=GitHub&style=social&logo=GitHub&logoColor=181717&link=https://github.com/shibd"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=网站部署&message=Vercel&style=social&logo=Vercel&logoColor=000000&link=https://vercel.com"></object> &nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=图片分发&message=jsDelivr&style=social&logo=jsDelivr&logoColor=E84D3D&link=https://www.jsdelivr.com/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=域名解析&message=Aliyun&style=social&logo=Alibaba Cloud&logoColor=FF6A00&link=https://www.aliyun.com/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=许可协议&message=CC BY-NC-SA 4.0&style=social&logo=Creative Commons&logoColor=EF9421&link=https://creativecommons.org/licenses/by-nc-sa/4.0/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=博客作者&message=Baozi&style=social&logo=Blogger&logoColor=FF5722&link=https://shibd.github.io/"></object>&nbsp;&nbsp;<object data="https://img.shields.io/static/v1?label=原创主题&message=Stellar&style=social&logo=Badoo&logoColor=783BF9&link=https://github.com/xaoxuu/hexo-theme-stellar/tree/1.4.0"></object>&nbsp;&nbsp;</div></footer>
+
+      <div class='float-panel mobile-only blur' style='display:none'>
+  <button type='button' class='sidebar-toggle mobile' onclick='sidebar.toggle()'>
+    <svg class="icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="15301"><path d="M566.407 808.3c26.9-0.1 49.3-20.8 51.6-47.6-1.9-27.7-23.9-49.7-51.6-51.6h-412.6c-28.2-1.4-52.6 19.5-55.5 47.6 2.3 26.8 24.6 47.5 51.6 47.6h416.5v4z m309.3-249.9c26.9-0.1 49.3-20.8 51.6-47.6-2.2-26.8-24.6-47.5-51.6-47.6h-721.9c-27.7-2.8-52.5 17.4-55.3 45.1-0.1 0.8-0.1 1.7-0.2 2.5 0.9 27.2 23.6 48.5 50.7 47.6H875.707z m-103.1-245.9c26.9-0.1 49.3-20.8 51.6-47.6-0.4-28.3-23.2-51.1-51.5-51.6h-618.9c-29.5-1.1-54.3 21.9-55.5 51.4v0.2c1.4 27.8 25.2 49.2 53 47.8 0.8 0 1.7-0.1 2.5-0.2h618.8z" p-id="15302"></path><path d="M566.407 808.3c26.9-0.1 49.3-20.8 51.6-47.6-1.9-27.7-23.9-49.7-51.6-51.6h-412.6c-28.2-1.4-52.6 19.5-55.5 47.6 1.9 27.7 23.9 49.7 51.6 51.6h416.5z m309.3-249.9c26.9-0.1 49.3-20.8 51.6-47.6-2.2-26.8-24.6-47.5-51.6-47.6h-721.9c-27.7-2.8-52.5 17.4-55.3 45.1-0.1 0.8-0.1 1.7-0.2 2.5 0.9 27.2 23.6 48.5 50.7 47.6H875.707z m-103.1-245.9c26.9-0.1 49.3-20.8 51.6-47.6-0.4-28.3-23.2-51.1-51.5-51.6h-618.9c-29.5-1.1-54.3 21.9-55.5 51.4v0.2c1.4 27.8 25.2 49.2 53 47.8 0.8 0 1.7-0.1 2.5-0.2h618.8z" p-id="15303"></path></svg>
+  </button>
+</div>
+
+    </div>
+  </div>
+  <div class='scripts'>
+    <script type="text/javascript">
+  stellar = {
+    // 懒加载 css https://github.com/filamentgroup/loadCSS
+    loadCSS: (href, before, media, attributes) => {
+      var doc = window.document;
+      var ss = doc.createElement("link");
+      var ref;
+      if (before) {
+        ref = before;
+      } else {
+        var refs = (doc.body || doc.getElementsByTagName("head")[0]).childNodes;
+        ref = refs[refs.length - 1];
+      }
+      var sheets = doc.styleSheets;
+      if (attributes) {
+        for (var attributeName in attributes) {
+          if (attributes.hasOwnProperty(attributeName)) {
+            ss.setAttribute(attributeName, attributes[attributeName]);
+          }
+        }
+      }
+      ss.rel = "stylesheet";
+      ss.href = href;
+      ss.media = "only x";
+      function ready(cb) {
+        if (doc.body) {
+          return cb();
+        }
+        setTimeout(function () {
+          ready(cb);
+        });
+      }
+      ready(function () {
+        ref.parentNode.insertBefore(ss, before ? ref : ref.nextSibling);
+      });
+      var onloadcssdefined = function (cb) {
+        var resolvedHref = ss.href;
+        var i = sheets.length;
+        while (i--) {
+          if (sheets[i].href === resolvedHref) {
+            return cb();
+          }
+        }
+        setTimeout(function () {
+          onloadcssdefined(cb);
+        });
+      };
+      function loadCB() {
+        if (ss.addEventListener) {
+          ss.removeEventListener("load", loadCB);
+        }
+        ss.media = media || "all";
+      }
+      if (ss.addEventListener) {
+        ss.addEventListener("load", loadCB);
+      }
+      ss.onloadcssdefined = onloadcssdefined;
+      onloadcssdefined(loadCB);
+      return ss;
+    },
+
+    // 从 butterfly 和 volantis 获得灵感
+    loadScript: (src, opt) => new Promise((resolve, reject) => {
+      var script = document.createElement('script');
+      script.src = src;
+      if (opt) {
+        for (let key of Object.keys(opt)) {
+          script[key] = opt[key]
+        }
+      } else {
+        // 默认异步，如果需要同步，第二个参数传入 {} 即可
+        script.async = true
+      }
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    }),
+
+    // https://github.com/jerryc127/hexo-theme-butterfly
+    jQuery: (fn) => {
+      if (typeof jQuery === 'undefined') {
+        stellar.loadScript(stellar.plugins.jQuery).then(fn)
+      } else {
+        fn()
+      }
+    }
+  };
+  stellar.github = 'https://github.com/xaoxuu/hexo-theme-stellar/tree/1.4.1';
+  stellar.config = {
+    date_suffix: {
+      just: '刚刚',
+      min: '分钟前',
+      hour: '小时前',
+      day: '天前',
+      month: '个月前',
+    },
+  };
+
+  // required plugins (only load if needs)
+  stellar.plugins = {
+    jQuery: 'https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js',
+    sitesjs: '/js/plugins/sites.js',
+    friendsjs: '/js/plugins/friends.js',
+  };
+
+  // optional plugins
+  if ('true' == 'true') {
+    stellar.plugins.lazyload = Object.assign({"enable":true,"js":"https://cdn.jsdelivr.net/npm/vanilla-lazyload@17.3.1/dist/lazyload.min.js","transition":"blur"});
+  }
+  if ('true' == 'true') {
+    stellar.plugins.swiper = Object.assign({"enable":true,"css":"https://unpkg.com/swiper/swiper-bundle.min.css","js":"https://unpkg.com/swiper/swiper-bundle.min.js"});
+  }
+  if ('' == 'true') {
+    stellar.plugins.scrollreveal = Object.assign({"enable":null,"js":"https://cdn.jsdelivr.net/npm/scrollreveal@4.0.9/dist/scrollreveal.min.js","distance":"8px","duration":500,"interval":100,"scale":1});
+  }
+  if ('true' == 'true') {
+    stellar.plugins.preload = Object.assign({"enable":true,"service":"flying_pages","instant_page":"https://cdn.jsdelivr.net/gh/volantis-x/cdn-volantis@4.1.2/js/instant_page.js","flying_pages":"https://cdn.jsdelivr.net/gh/gijo-varghese/flying-pages@2.1.2/flying-pages.min.js"});
+  }
+</script>
+
+<!-- required -->
+
+  
+<script src="/js/main.js" async></script>
+
+
+
+<!-- optional -->
+
+  <script>
+  function loadBeaudar() {
+    const els = document.querySelectorAll("#comments #beaudar");
+    if (els.length === 0) return;
+    els.forEach((el, i) => {
+      try {
+        el.innerHTML = '';
+      } catch (error) {
+        console.log(error);
+      }
+      var script = document.createElement('script');
+      script.src = 'https://beaudar.lipk.org/client.js';
+      script.async = true;
+      for (let key of Object.keys(el.attributes)) {
+        let attr = el.attributes[key];
+        if (['class', 'id'].includes(attr.name) === false) {
+          script.setAttribute(attr.name, attr.value);
+        }
+      }
+      el.appendChild(script);
+    });
+  }
+  window.addEventListener('DOMContentLoaded', (event) => {
+      loadBeaudar();
+  });
+</script>
+
+
+
+
+<!-- inject -->
+
+
+  </div>
+</body>
+</html>
